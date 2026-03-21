@@ -1,0 +1,29 @@
+version: '3.8'
+
+services:
+  rat-analytics:
+    build: .
+    ports:
+      - "${PORT:-3000}:3000"
+    volumes:
+      - ./analytics.db:/app/analytics.db
+      - ./.env:/app/.env:ro
+    environment:
+      - NODE_ENV=production
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - rat-network
+
+networks:
+  rat-network:
+    driver: bridge
+
+volumes:
+  rat-data:
+    driver: local

@@ -1,0 +1,16 @@
+version: '3.8'
+
+services:
+  rat-demo:
+    build: ..
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./demo.db:/app/analytics.db
+      - ../demo/init-demo.sql:/app/init-demo.sql
+    environment:
+      - NODE_ENV=demo
+      - SESSION_SECRET=demo-secret-key-change-in-production
+      - ALLOWED_ORIGINS=http://localhost:3000
+      - DEMO_MODE=true
+    command: sh -c "npm run init-demo && npm start"
