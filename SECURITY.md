@@ -39,21 +39,25 @@ When reporting a security vulnerability, please include:
 When deploying RAT, please follow these security best practices:
 
 ### Environment Variables
+
 - Change the default `SESSION_SECRET` to a strong, random value
 - Use HTTPS in production
 - Set secure session cookies
 
 ### User Management
+
 - Change the default admin password immediately
 - Use strong passwords for all accounts
 - Regularly review and revoke unnecessary user access
 
 ### Network Security
+
 - Run RAT behind a reverse proxy (nginx, Apache, etc.)
 - Configure proper CORS settings for your domain
 - Use firewalls to restrict access to the server
 
 ### Data Protection
+
 - Regularly backup your SQLite database
 - Monitor for unusual activity in analytics data
 - Keep dependencies updated

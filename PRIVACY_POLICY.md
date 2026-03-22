@@ -9,6 +9,7 @@ Real Analytics Tracker (RAT) is open-source software for self-hosted, privacy-fo
 ## 2. Information We Collect
 
 ### 2.1 Analytics Data
+
 When you use RAT Analytics on your website, we collect minimal, anonymous data:
 
 - **Page URLs**: The paths of pages visited (anonymized)
@@ -18,6 +19,7 @@ When you use RAT Analytics on your website, we collect minimal, anonymous data:
 - **Session Identifiers**: Temporary, non-persistent session IDs
 
 ### 2.2 User Account Data
+
 For dashboard access, we collect:
 
 - **Account Information**: Username, email address, password (hashed)
@@ -25,6 +27,7 @@ For dashboard access, we collect:
 - **Usage Logs**: Login times and dashboard activity
 
 ### 2.3 What RAT Does NOT Collect
+
 The RAT client-side script does not use:
 
 - Personal identifiable information (PII)
@@ -38,6 +41,7 @@ RAT respects the Do Not Track (DNT) browser setting.
 ## 3. How We Use Information
 
 ### 3.1 Analytics Purposes
+
 We use collected data solely to provide analytics services:
 
 - Generate website traffic reports
@@ -45,6 +49,7 @@ We use collected data solely to provide analytics services:
 - Provide insights into user engagement
 
 ### 3.2 Service Operation
+
 - Maintain and improve the analytics platform
 - Provide customer support
 - Ensure service security and availability
@@ -52,9 +57,11 @@ We use collected data solely to provide analytics services:
 ## 4. Data Storage and Security
 
 ### 4.1 Self-Hosted Architecture
+
 Since RAT Analytics is self-hosted, all data is stored on your own servers. You maintain full control over your data.
 
 ### 4.2 Security Measures
+
 We implement industry-standard security practices:
 
 - Password hashing using bcrypt
@@ -63,22 +70,27 @@ We implement industry-standard security practices:
 - Regular security audits and updates
 
 ### 4.3 Data Retention
+
 Data retention is configurable by you. We recommend following applicable data protection regulations for retention periods.
 
 ## 5. Data Sharing and Disclosure
 
 ### 5.1 No Third-Party Sharing
+
 We do not sell, trade, or otherwise transfer your data to third parties.
 
 ### 5.2 Legal Requirements
+
 We may disclose information only when required by law or to protect our rights and safety.
 
 ### 5.3 Service Providers
+
 If you choose to use third-party hosting services, your data may be subject to their privacy policies.
 
 ## 6. Your Rights
 
 ### 6.1 Data Control
+
 Since you host RAT Analytics, you have full control over:
 
 - What data is collected
@@ -87,9 +99,11 @@ Since you host RAT Analytics, you have full control over:
 - Data deletion and export
 
 ### 6.2 Access and Correction
+
 You can access and modify your account data through the dashboard.
 
 ### 6.3 Data Deletion
+
 You can delete your data at any time through the dashboard or by removing the database.
 
 ## 7. Cookies and Tracking
@@ -125,4 +139,4 @@ For questions about this Privacy Policy or the RAT software:
 
 ---
 
-*This Privacy Policy is designed to be transparent about our minimal data collection practices and ensure compliance with global privacy regulations.*
+_This Privacy Policy is designed to be transparent about our minimal data collection practices and ensure compliance with global privacy regulations._

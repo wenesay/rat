@@ -37,6 +37,7 @@ RAT Analytics is committed to transparency and legal compliance:
 Deploy RAT on your own infrastructure with complete control:
 
 #### Using Docker (Recommended)
+
 ```bash
 git clone https://github.com/wenesay/rat.git
 cd rat
@@ -44,6 +45,7 @@ docker-compose up -d
 ```
 
 #### Manual Installation
+
 ```bash
 git clone https://github.com/wenesay/rat.git
 cd rat
@@ -83,23 +85,27 @@ Prefer zero setup? A managed hosting option may be available separately (e.g., c
 ### Step-by-Step Installation
 
 1. **Clone the repository**
+
    ```bash
    git clone https://github.com/wenesay/rat.git
    cd rat
    ```
 
 2. **Install dependencies**
+
    ```bash
    npm install
    ```
 
 3. **Configure environment** (optional)
+
    ```bash
    cp .env.example .env
    # Edit .env with your settings
    ```
 
 4. **Start the server**
+
    ```bash
    npm start
    ```
@@ -208,6 +214,7 @@ PORT=3000
 - **Heroku**: Traditional PaaS (consider migration)
 
 #### 3. **Cloud Platforms** - Enterprise grade
+
 - **AWS**: EC2 + RDS, Lightsail for simple setups
 - **Google Cloud**: App Engine, Cloud Run
 - **Azure**: App Service, Container Instances
@@ -215,11 +222,13 @@ PORT=3000
 ### Self-Hosting with External Database
 
 #### Supported Databases
+
 - **SQLite**: Default, file-based (perfect for single instances)
 - **PostgreSQL**: Production recommended
 - **MySQL**: Enterprise environments
 
 #### Configuration
+
 ```bash
 # Use external PostgreSQL
 export DATABASE_URL=postgresql://user:pass@host:5432/rat_db
@@ -229,10 +238,12 @@ npm start
 ### Demo Environment
 
 Try before you deploy:
+
 ```bash
 cd demo
 docker-compose -f docker-compose.demo.yml up -d
 ```
+
 Access at `http://localhost:3000` with pre-populated demo data.
 
 ## ⚙️ Configuration
@@ -281,43 +292,49 @@ The admin user will be created automatically on first run if `SETUP_ADMIN=true`.
 ### For Website Owners
 
 #### 1. Deploy Your RAT Instance
+
 First, deploy RAT on your own server (see [Quick Start](#-quick-start) above).
 
 #### 2. Register/Login
+
 - Access your RAT dashboard at `http://your-server.com`
 - Register a new account or login with existing credentials
 - **Default credentials**: `admin` / `admin` (change immediately!)
 
 #### 3. Create a Project
+
 - Navigate to the Projects section in your dashboard
 - Click "Create New Project"
 - Give your project a name (e.g., "My Website Analytics")
 
 #### 4. Get Your Tracking Code
+
 - In your project dashboard, click "Get Code" or "Tracking Code"
 - Copy the provided HTML snippet
 
 #### 5. Add Tracking to Your Website
+
 Include the tracking code in the `<head>` section of your website:
 
 ```html
 <!DOCTYPE html>
 <html>
-<head>
-  <title>My Website</title>
-  <!-- RAT Analytics Tracking Code -->
-  <script>
-    window.ratAnalyticsProjectId = 'your-project-id-here';
-  </script>
-  <script src="https://your-rat-server.com/snippet/analytics.js"></script>
-</head>
-<body>
-  <!-- Your website content -->
-</body>
+  <head>
+    <title>My Website</title>
+    <!-- RAT Analytics Tracking Code -->
+    <script>
+      window.ratAnalyticsProjectId = 'your-project-id-here';
+    </script>
+    <script src="https://your-rat-server.com/snippet/analytics.js"></script>
+  </head>
+  <body>
+    <!-- Your website content -->
+  </body>
 </html>
 ```
 
 **Replace:**
+
 - `your-project-id-here` with your actual project ID
 - `https://your-rat-server.com` with your self-hosted RAT server URL
 
@@ -326,6 +343,7 @@ The snippet auto-detects its endpoint from the script URL, respects Do Not Track
 ### Advanced Usage
 
 #### Custom Event Tracking
+
 Track custom events beyond automatic page views:
 
 ```javascript
@@ -333,12 +351,13 @@ Track custom events beyond automatic page views:
 if (window.ratAnalytics) {
   window.ratAnalytics.track('button_click', {
     button_id: 'cta_main',
-    page: window.location.pathname
+    page: window.location.pathname,
   });
 }
 ```
 
 #### User Identification (Privacy-Compliant)
+
 Identify users without collecting personal data:
 
 ```javascript
@@ -351,17 +370,20 @@ if (window.ratAnalytics) {
 ### Dashboard Features
 
 #### Analytics Overview
+
 - **Real-time Metrics**: Total views, unique visitors, sessions
 - **Top Pages**: Most visited pages on your site
 - **Traffic Sources**: Referrer analysis
 - **Device & Browser Stats**: Technical breakdown
 
 #### Project Management
+
 - **Multiple Projects**: Track different websites or sections
 - **Access Control**: Share projects with team members
 - **API Keys**: Generate project-specific tracking keys
 
 #### User Management
+
 - **Role-Based Access**: Admin and viewer roles
 - **Team Collaboration**: Invite users to projects
 - **Secure Authentication**: Password-protected access
@@ -371,6 +393,7 @@ if (window.ratAnalytics) {
 RAT is designed with privacy as the foundation:
 
 #### ✅ What We Collect (Minimal & Anonymous)
+
 - **Page URL**: Current page path (anonymized)
 - **Referrer**: Source website (if available)
 - **Timestamp**: When the visit occurred
@@ -378,6 +401,7 @@ RAT is designed with privacy as the foundation:
 - **Session Data**: Temporary session identifier (not stored long-term)
 
 #### ❌ What We DON'T Collect
+
 - **Personal Information**: No names, emails, or identifiers
 - **Cookies**: No tracking cookies or local storage
 - **IP Addresses**: Not stored (privacy protection)
@@ -385,6 +409,7 @@ RAT is designed with privacy as the foundation:
 - **Third-Party Data**: No integration with other tracking services
 
 #### 🔒 Privacy Compliance
+
 - **GDPR Compliant**: Minimal data collection, no personal data
 - **CCPA Compliant**: No sale of personal information
 - **Self-Hosted**: You control all your data
@@ -430,6 +455,7 @@ RAT includes built-in SEO optimizations:
 ## 🚀 Future Development
 
 ### Planned Features
+
 - [ ] Advanced analytics visualizations
 - [ ] Custom dashboard themes
 - [ ] API rate limiting improvements
@@ -478,6 +504,7 @@ git clone https://github.com/wenesay/rat.git
 cd rat
 npm install && npm start
 ```
+
 **[Self-Hosting Guide](DEPLOYMENT.md)**
 
 ---
@@ -501,6 +528,7 @@ npm install && npm start
 ### Using Docker (Recommended)
 
 1. Clone the repository:
+
    ```bash
    git clone https://github.com/wenesay/rat.git
    cd rat
@@ -516,12 +544,14 @@ The server will run on `http://localhost:3000`.
 ### Manual Installation
 
 1. Clone the repository:
+
    ```bash
    git clone https://github.com/wenesay/rat.git
    cd rat
    ```
 
 2. Install dependencies:
+
    ```bash
    npm install
    ```
@@ -540,6 +570,7 @@ The server will run on `http://localhost:3000`.
 2. **Add the Snippet**: Include the analytics script on your website with your project ID:
 
    **Option 1: Global Variable**
+
    ```html
    <script>
      window.ratAnalyticsProjectId = 'YOUR_PROJECT_ID';
@@ -548,8 +579,9 @@ The server will run on `http://localhost:3000`.
    ```
 
    **Option 2: Meta Tag**
+
    ```html
-   <meta name="rat-analytics-project" content="YOUR_PROJECT_ID">
+   <meta name="rat-analytics-project" content="YOUR_PROJECT_ID" />
    <script src="https://your-domain.com/snippet/analytics.js"></script>
    ```
 
@@ -567,15 +599,18 @@ No personal data, cookies, or tracking identifiers are collected.
 ## API Endpoints
 
 ### Public Endpoints
+
 - `GET /snippet/analytics.js` - Serves the analytics snippet
 - `POST /track` - Receives analytics data (requires projectId)
 
 ### Authentication Endpoints
+
 - `GET /login` - Login page
 - `POST /login` - Authenticate user
 - `POST /logout` - Logout user
 
 ### Protected Endpoints (require authentication)
+
 - `GET /api/user` - Get current user info
 - `GET /api/projects` - List user's accessible projects
 - `POST /api/projects` - Create new project
@@ -588,6 +623,7 @@ No personal data, cookies, or tracking identifiers are collected.
 ## Dashboard
 
 Visit `http://your-domain.com` to view your analytics dashboard, which shows:
+
 - Total page views
 - Number of unique pages
 - Top viewed pages
@@ -634,6 +670,7 @@ This application can be deployed to any platform that supports Node.js:
 ### Admin Features
 
 Admin users can:
+
 - Create and manage user accounts
 - View all projects and analytics
 - Access user management dashboard
@@ -642,6 +679,7 @@ Admin users can:
 ### Default Setup
 
 On first run, if `SETUP_ADMIN=true` in environment:
+
 - Creates default admin user
 - Allows initial configuration
 - Should be disabled after setup
@@ -711,6 +749,7 @@ RAT is designed to be privacy-compliant:
 ## Privacy & Ethics
 
 This analytics tool is designed with privacy in mind:
+
 - No cookies or local storage
 - No cross-site tracking
 - Data is stored locally on your server

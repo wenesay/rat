@@ -4,7 +4,7 @@ services:
   rat-demo:
     build: ..
     ports:
-      - "3000:3000"
+      - '3000:3000'
     volumes:
       - ./demo.db:/app/analytics.db
       - ../demo/init-demo.sql:/app/init-demo.sql

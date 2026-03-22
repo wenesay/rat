@@ -33,7 +33,9 @@ const PORT = process.env.PORT || 3000;
 const NODE_ENV = process.env.NODE_ENV || 'development';
 const SESSION_SECRET = process.env.SESSION_SECRET;
 const DATABASE_PATH = process.env.DATABASE_PATH || path.join(__dirname, 'analytics.db');
-const ALLOWED_ORIGINS = process.env.ALLOWED_ORIGINS ? process.env.ALLOWED_ORIGINS.split(',') : ['http://localhost:3000'];
+const ALLOWED_ORIGINS = process.env.ALLOWED_ORIGINS
+  ? process.env.ALLOWED_ORIGINS.split(',')
+  : ['http://localhost:3000'];
 
 // Validate required environment variables
 if (!SESSION_SECRET) {
@@ -46,38 +48,42 @@ if (!SESSION_SECRET) {
 const app = express();
 
 // Security middleware - applied first
-app.use(helmet({
-  contentSecurityPolicy: {
-    directives: {
-      defaultSrc: ["'self'"],
-      styleSrc: ["'self'", "'unsafe-inline'"],
-      scriptSrc: ["'self'"],
-      imgSrc: ["'self'", "data:", "https:"],
+app.use(
+  helmet({
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        styleSrc: ["'self'", "'unsafe-inline'"],
+        scriptSrc: ["'self'"],
+        imgSrc: ["'self'", 'data:', 'https:'],
+      },
     },
-  },
-  hsts: {
-    maxAge: 31536000,
-    includeSubDomains: true,
-    preload: true
-  }
-}));
+    hsts: {
+      maxAge: 31536000,
+      includeSubDomains: true,
+      preload: true,
+    },
+  })
+);
 
 // CORS configuration
-app.use(cors({
-  origin: function (origin, callback) {
-    // Allow requests with no origin (mobile apps, etc.)
-    if (!origin) return callback(null, true);
+app.use(
+  cors({
+    origin: function (origin, callback) {
+      // Allow requests with no origin (mobile apps, etc.)
+      if (!origin) return callback(null, true);
 
-    if (ALLOWED_ORIGINS.includes(origin)) {
-      return callback(null, true);
-    }
+      if (ALLOWED_ORIGINS.includes(origin)) {
+        return callback(null, true);
+      }
 
-    return callback(new Error('Not allowed by CORS'));
-  },
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE'],
-  allowedHeaders: ['Content-Type', 'Authorization']
-}));
+      return callback(new Error('Not allowed by CORS'));
+    },
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+  })
+);
 
 // Rate limiting
 const limiter = rateLimit({
@@ -105,19 +111,21 @@ app.use(express.json({ limit: '1mb' }));
 app.use(express.urlencoded({ extended: true, limit: '1mb' }));
 
 // Session configuration
-app.use(session({
-  name: 'rat_session',
-  secret: SESSION_SECRET,
-  resave: false,
-  saveUninitialized: false,
-  cookie: {
-    secure: NODE_ENV === 'production', // HTTPS only in production
-    httpOnly: true, // Prevent XSS attacks
-    maxAge: 24 * 60 * 60 * 1000, // 24 hours
-    sameSite: 'strict' // CSRF protection
-  },
-  rolling: true // Reset expiration on activity
-}));
+app.use(
+  session({
+    name: 'rat_session',
+    secret: SESSION_SECRET,
+    resave: false,
+    saveUninitialized: false,
+    cookie: {
+      secure: NODE_ENV === 'production', // HTTPS only in production
+      httpOnly: true, // Prevent XSS attacks
+      maxAge: 24 * 60 * 60 * 1000, // 24 hours
+      sameSite: 'strict', // CSRF protection
+    },
+    rolling: true, // Reset expiration on activity
+  })
+);
 
 // Static files
 app.use(express.static(path.join(__dirname, 'public')));
@@ -126,10 +134,12 @@ app.use(express.static(path.join(__dirname, 'public')));
 let db;
 function initializeDatabase() {
   return new Promise((resolve, reject) => {
-    // Ensure database directory exists
-    const dbDir = path.dirname(DATABASE_PATH);
-    if (!fs.existsSync(dbDir)) {
-      fs.mkdirSync(dbDir, { recursive: true });
+    // Ensure database directory exists (skip for :memory:)
+    if (DATABASE_PATH !== ':memory:') {
+      const dbDir = path.dirname(DATABASE_PATH);
+      if (!fs.existsSync(dbDir)) {
+        fs.mkdirSync(dbDir, { recursive: true });
+      }
     }
 
     db = new sqlite3.Database(DATABASE_PATH, (err) => {
@@ -144,7 +154,8 @@ function initializeDatabase() {
       // Create tables
       db.serialize(() => {
         // Users table
-        db.run(`
+        db.run(
+          `
           CREATE TABLE IF NOT EXISTS users (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             username TEXT UNIQUE NOT NULL CHECK(length(username) >= 3 AND length(username) <= 50),
@@ -156,16 +167,19 @@ function initializeDatabase() {
             updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             last_login DATETIME
           )
-        `, (err) => {
-          if (err) {
-            console.error('❌ Error creating users table:', err.message);
-            reject(err);
-            return;
+        `,
+          (err) => {
+            if (err) {
+              console.error('❌ Error creating users table:', err.message);
+              reject(err);
+              return;
+            }
           }
-        });
+        );
 
         // Projects table
-        db.run(`
+        db.run(
+          `
           CREATE TABLE IF NOT EXISTS projects (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             name TEXT NOT NULL CHECK(length(name) >= 1 AND length(name) <= 100),
@@ -176,16 +190,19 @@ function initializeDatabase() {
             updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (owner_id) REFERENCES users (id) ON DELETE CASCADE
           )
-        `, (err) => {
-          if (err) {
-            console.error('❌ Error creating projects table:', err.message);
-            reject(err);
-            return;
+        `,
+          (err) => {
+            if (err) {
+              console.error('❌ Error creating projects table:', err.message);
+              reject(err);
+              return;
+            }
           }
-        });
+        );
 
         // Project shares table
-        db.run(`
+        db.run(
+          `
           CREATE TABLE IF NOT EXISTS project_shares (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             project_id INTEGER NOT NULL,
@@ -196,16 +213,19 @@ function initializeDatabase() {
             FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE,
             UNIQUE(project_id, user_id)
           )
-        `, (err) => {
-          if (err) {
-            console.error('❌ Error creating project_shares table:', err.message);
-            reject(err);
-            return;
+        `,
+          (err) => {
+            if (err) {
+              console.error('❌ Error creating project_shares table:', err.message);
+              reject(err);
+              return;
+            }
           }
-        });
+        );
 
         // Analytics data table - privacy-focused
-        db.run(`
+        db.run(
+          `
           CREATE TABLE IF NOT EXISTS analytics (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             project_id INTEGER NOT NULL,
@@ -217,20 +237,44 @@ function initializeDatabase() {
             timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (project_id) REFERENCES projects (id) ON DELETE CASCADE
           )
-        `, (err) => {
-          if (err) {
-            console.error('❌ Error creating analytics table:', err.message);
-            reject(err);
-            return;
+        `,
+          (err) => {
+            if (err) {
+              console.error('❌ Error creating analytics table:', err.message);
+              reject(err);
+              return;
+            }
+
+            // Create indexes for performance
+            db.run(
+              'CREATE INDEX IF NOT EXISTS idx_analytics_project_timestamp ON analytics(project_id, timestamp)'
+            );
+            db.run('CREATE INDEX IF NOT EXISTS idx_analytics_session ON analytics(session_id)');
+
+            // Test seed: create user and project for /track tests
+            if (NODE_ENV === 'test') {
+              bcrypt.hash('Test1234!', 10, (hashErr, hash) => {
+                if (hashErr) return resolve();
+                db.run(
+                  "INSERT OR IGNORE INTO users (id, username, password_hash, role, is_active) VALUES (1, 'testadmin', ?, 'admin', 1)",
+                  [hash],
+                  () => {
+                    db.run(
+                      "INSERT OR IGNORE INTO projects (id, name, owner_id, is_active) VALUES (1, 'Test Project', 1, 1)",
+                      () => {
+                        console.log('✅ Database schema initialized (test mode)');
+                        resolve();
+                      }
+                    );
+                  }
+                );
+              });
+            } else {
+              console.log('✅ Database schema initialized');
+              resolve();
+            }
           }
-
-          // Create indexes for performance
-          db.run(`CREATE INDEX IF NOT EXISTS idx_analytics_project_timestamp ON analytics(project_id, timestamp)`);
-          db.run(`CREATE INDEX IF NOT EXISTS idx_analytics_session ON analytics(session_id)`);
-
-          console.log('✅ Database schema initialized');
-          resolve();
-        });
+        );
       });
     });
   });
@@ -239,7 +283,10 @@ function initializeDatabase() {
 // Input validation and sanitization functions
 function sanitizeString(str, maxLength = 255) {
   if (typeof str !== 'string') return '';
-  return str.trim().substring(0, maxLength).replace(/[<>\"'&]/g, '');
+  return str
+    .trim()
+    .substring(0, maxLength)
+    .replace(/[<>"'&]/g, '');
 }
 
 function validateEmail(email) {
@@ -251,6 +298,15 @@ function validatePassword(password) {
   // At least 8 characters, 1 uppercase, 1 lowercase, 1 number
   const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)[a-zA-Z\d@$!%*?&]{8,}$/;
   return passwordRegex.test(password);
+}
+
+function validateUrl(url) {
+  try {
+    const parsedUrl = new URL(url);
+    return ['http:', 'https:'].includes(parsedUrl.protocol);
+  } catch {
+    return false;
+  }
 }
 
 function generateSessionId() {
@@ -268,7 +324,7 @@ function requireAuth(req, res, next) {
   if (!req.session.userId) {
     return res.status(401).json({
       success: false,
-      message: 'Authentication required'
+      message: 'Authentication required',
     });
   }
   next();
@@ -279,7 +335,7 @@ function requireAdmin(req, res, next) {
   if (!req.session.userId || req.session.role !== 'admin') {
     return res.status(403).json({
       success: false,
-      message: 'Admin access required'
+      message: 'Admin access required',
     });
   }
   next();
@@ -293,34 +349,38 @@ function requireProjectAccess(req, res, next) {
   if (!projectId || isNaN(projectId)) {
     return res.status(400).json({
       success: false,
-      message: 'Invalid project ID'
+      message: 'Invalid project ID',
     });
   }
 
   // Check if user owns the project or has access
-  db.get(`
+  db.get(
+    `
     SELECT p.id FROM projects p
     LEFT JOIN project_shares ps ON p.id = ps.project_id AND ps.user_id = ?
     WHERE p.id = ? AND p.is_active = 1 AND (p.owner_id = ? OR ps.permission IS NOT NULL)
-  `, [userId, projectId, userId], (err, row) => {
-    if (err) {
-      console.error('Database error:', err);
-      return res.status(500).json({
-        success: false,
-        message: 'Database error'
-      });
-    }
+  `,
+    [userId, projectId, userId],
+    (err, row) => {
+      if (err) {
+        console.error('Database error:', err);
+        return res.status(500).json({
+          success: false,
+          message: 'Database error',
+        });
+      }
 
-    if (!row) {
-      return res.status(403).json({
-        success: false,
-        message: 'Access denied to this project'
-      });
-    }
+      if (!row) {
+        return res.status(403).json({
+          success: false,
+          message: 'Access denied to this project',
+        });
+      }
 
-    req.projectId = projectId;
-    next();
-  });
+      req.projectId = projectId;
+      next();
+    }
+  );
 }
 
 // API Routes
@@ -330,7 +390,7 @@ app.get('/health', (req, res) => {
   res.json({
     status: 'healthy',
     timestamp: new Date().toISOString(),
-    version: '1.0.0'
+    version: '1.0.0',
   });
 });
 
@@ -342,7 +402,7 @@ app.post('/track', (req, res) => {
   if (!projectId || !url) {
     return res.status(400).json({
       success: false,
-      message: 'projectId and url are required'
+      message: 'projectId and url are required',
     });
   }
 
@@ -350,7 +410,7 @@ app.post('/track', (req, res) => {
   if (isNaN(projectIdNum) || projectIdNum <= 0) {
     return res.status(400).json({
       success: false,
-      message: 'Invalid projectId'
+      message: 'Invalid projectId',
     });
   }
 
@@ -360,46 +420,54 @@ app.post('/track', (req, res) => {
   const cleanUserAgent = userAgent ? sanitizeString(userAgent, 500) : null;
 
   // Verify project exists and is active
-  db.get('SELECT id FROM projects WHERE id = ? AND is_active = 1', [projectIdNum], (err, project) => {
-    if (err) {
-      console.error('Database error:', err);
-      return res.status(500).json({
-        success: false,
-        message: 'Database error'
-      });
-    }
-
-    if (!project) {
-      return res.status(404).json({
-        success: false,
-        message: 'Project not found'
-      });
-    }
-
-    // Generate anonymous session ID if not provided
-    const sessionId = req.body.sessionId || generateSessionId();
-    const ipHash = hashIP(req.ip);
-
-    // Insert analytics data
-    db.run(`
-      INSERT INTO analytics (project_id, url, referrer, user_agent, ip_hash, session_id)
-      VALUES (?, ?, ?, ?, ?, ?)
-    `, [projectIdNum, cleanUrl, cleanReferrer, cleanUserAgent, ipHash, sessionId], function(err) {
+  db.get(
+    'SELECT id FROM projects WHERE id = ? AND is_active = 1',
+    [projectIdNum],
+    (err, project) => {
       if (err) {
         console.error('Database error:', err);
         return res.status(500).json({
           success: false,
-          message: 'Failed to record analytics data'
+          message: 'Database error',
         });
       }
 
-      res.json({
-        success: true,
-        message: 'Analytics data recorded',
-        id: this.lastID
-      });
-    });
-  });
+      if (!project) {
+        return res.status(404).json({
+          success: false,
+          message: 'Project not found',
+        });
+      }
+
+      // Generate anonymous session ID if not provided
+      const sessionId = req.body.sessionId || generateSessionId();
+      const ipHash = hashIP(req.ip);
+
+      // Insert analytics data
+      db.run(
+        `
+      INSERT INTO analytics (project_id, url, referrer, user_agent, ip_hash, session_id)
+      VALUES (?, ?, ?, ?, ?, ?)
+    `,
+        [projectIdNum, cleanUrl, cleanReferrer, cleanUserAgent, ipHash, sessionId],
+        function (err) {
+          if (err) {
+            console.error('Database error:', err);
+            return res.status(500).json({
+              success: false,
+              message: 'Failed to record analytics data',
+            });
+          }
+
+          res.json({
+            success: true,
+            message: 'Analytics data recorded',
+            id: this.lastID,
+          });
+        }
+      );
+    }
+  );
 });
 
 // Get analytics script (industry-standard: DNT, no cookies/localStorage, sendBeacon)
@@ -469,63 +537,67 @@ app.post('/login', (req, res) => {
   if (!username || !password) {
     return res.status(400).json({
       success: false,
-      message: 'Username and password are required'
+      message: 'Username and password are required',
     });
   }
 
   const cleanUsername = sanitizeString(username, 50);
 
-  db.get('SELECT * FROM users WHERE username = ? AND is_active = 1', [cleanUsername], (err, user) => {
-    if (err) {
-      console.error('Database error:', err);
-      return res.status(500).json({
-        success: false,
-        message: 'Database error'
-      });
-    }
-
-    if (!user) {
-      return res.status(401).json({
-        success: false,
-        message: 'Invalid credentials'
-      });
-    }
-
-    bcrypt.compare(password, user.password_hash, (err, isValid) => {
+  db.get(
+    'SELECT * FROM users WHERE username = ? AND is_active = 1',
+    [cleanUsername],
+    (err, user) => {
       if (err) {
-        console.error('Password comparison error:', err);
+        console.error('Database error:', err);
         return res.status(500).json({
           success: false,
-          message: 'Authentication error'
+          message: 'Database error',
         });
       }
 
-      if (!isValid) {
+      if (!user) {
         return res.status(401).json({
           success: false,
-          message: 'Invalid credentials'
+          message: 'Invalid credentials',
         });
       }
 
-      // Update last login
-      db.run('UPDATE users SET last_login = CURRENT_TIMESTAMP WHERE id = ?', [user.id]);
-
-      // Set session
-      req.session.userId = user.id;
-      req.session.username = user.username;
-      req.session.role = user.role;
-
-      res.json({
-        success: true,
-        message: 'Login successful',
-        user: {
-          id: user.id,
-          username: user.username,
-          role: user.role
+      bcrypt.compare(password, user.password_hash, (err, isValid) => {
+        if (err) {
+          console.error('Password comparison error:', err);
+          return res.status(500).json({
+            success: false,
+            message: 'Authentication error',
+          });
         }
+
+        if (!isValid) {
+          return res.status(401).json({
+            success: false,
+            message: 'Invalid credentials',
+          });
+        }
+
+        // Update last login
+        db.run('UPDATE users SET last_login = CURRENT_TIMESTAMP WHERE id = ?', [user.id]);
+
+        // Set session
+        req.session.userId = user.id;
+        req.session.username = user.username;
+        req.session.role = user.role;
+
+        res.json({
+          success: true,
+          message: 'Login successful',
+          user: {
+            id: user.id,
+            username: user.username,
+            role: user.role,
+          },
+        });
       });
-    });
-  });
+    }
+  );
 });
 
 app.post('/logout', requireAuth, (req, res) => {
@@ -534,14 +606,14 @@ app.post('/logout', requireAuth, (req, res) => {
       console.error('Session destruction error:', err);
       return res.status(500).json({
         success: false,
-        message: 'Logout error'
+        message: 'Logout error',
       });
     }
 
     res.clearCookie('rat_session');
     res.json({
       success: true,
-      message: 'Logout successful'
+      message: 'Logout successful',
     });
   });
 });
@@ -552,31 +624,35 @@ app.get('/api/user', requireAuth, (req, res) => {
     user: {
       id: req.session.userId,
       username: req.session.username,
-      role: req.session.role
-    }
+      role: req.session.role,
+    },
   });
 });
 
 // User management (admin only)
 app.get('/api/users', requireAdmin, (req, res) => {
-  db.all(`
+  db.all(
+    `
     SELECT id, username, email, role, is_active, created_at, last_login
     FROM users
     ORDER BY created_at DESC
-  `, [], (err, rows) => {
-    if (err) {
-      console.error('Database error:', err);
-      return res.status(500).json({
-        success: false,
-        message: 'Database error'
+  `,
+    [],
+    (err, rows) => {
+      if (err) {
+        console.error('Database error:', err);
+        return res.status(500).json({
+          success: false,
+          message: 'Database error',
+        });
+      }
+
+      res.json({
+        success: true,
+        users: rows,
       });
     }
-
-    res.json({
-      success: true,
-      users: rows
-    });
-  });
+  );
 });
 
 app.post('/api/users', requireAdmin, (req, res) => {
@@ -586,7 +662,7 @@ app.post('/api/users', requireAdmin, (req, res) => {
   if (!username || !password) {
     return res.status(400).json({
       success: false,
-      message: 'Username and password are required'
+      message: 'Username and password are required',
     });
   }
 
@@ -596,28 +672,28 @@ app.post('/api/users', requireAdmin, (req, res) => {
   if (cleanUsername !== username || cleanUsername.length < 3) {
     return res.status(400).json({
       success: false,
-      message: 'Username must be 3-50 characters and contain only valid characters'
+      message: 'Username must be 3-50 characters and contain only valid characters',
     });
   }
 
   if (email && !validateEmail(email)) {
     return res.status(400).json({
       success: false,
-      message: 'Invalid email format'
+      message: 'Invalid email format',
     });
   }
 
   if (!validatePassword(password)) {
     return res.status(400).json({
       success: false,
-      message: 'Password must be at least 8 characters with uppercase, lowercase, and number'
+      message: 'Password must be at least 8 characters with uppercase, lowercase, and number',
     });
   }
 
   if (!['admin', 'viewer'].includes(role)) {
     return res.status(400).json({
       success: false,
-      message: 'Invalid role'
+      message: 'Invalid role',
     });
   }
 
@@ -627,35 +703,39 @@ app.post('/api/users', requireAdmin, (req, res) => {
       console.error('Password hashing error:', err);
       return res.status(500).json({
         success: false,
-        message: 'Password processing error'
+        message: 'Password processing error',
       });
     }
 
     // Insert user
-    db.run(`
+    db.run(
+      `
       INSERT INTO users (username, email, password_hash, role)
       VALUES (?, ?, ?, ?)
-    `, [cleanUsername, cleanEmail, hash, role], function(err) {
-      if (err) {
-        if (err.code === 'SQLITE_CONSTRAINT_UNIQUE') {
-          return res.status(409).json({
+    `,
+      [cleanUsername, cleanEmail, hash, role],
+      function (err) {
+        if (err) {
+          if (err.code === 'SQLITE_CONSTRAINT_UNIQUE') {
+            return res.status(409).json({
+              success: false,
+              message: 'Username or email already exists',
+            });
+          }
+          console.error('Database error:', err);
+          return res.status(500).json({
             success: false,
-            message: 'Username or email already exists'
+            message: 'Database error',
           });
         }
-        console.error('Database error:', err);
-        return res.status(500).json({
-          success: false,
-          message: 'Database error'
+
+        res.status(201).json({
+          success: true,
+          message: 'User created successfully',
+          userId: this.lastID,
         });
       }
-
-      res.status(201).json({
-        success: true,
-        message: 'User created successfully',
-        userId: this.lastID
-      });
-    });
+    );
   });
 });
 
@@ -663,7 +743,8 @@ app.post('/api/users', requireAdmin, (req, res) => {
 app.get('/api/projects', requireAuth, (req, res) => {
   const userId = req.session.userId;
 
-  db.all(`
+  db.all(
+    `
     SELECT
       p.id, p.name, p.description, p.created_at, p.updated_at,
       u.username as owner_username,
@@ -673,20 +754,23 @@ app.get('/api/projects', requireAuth, (req, res) => {
     LEFT JOIN project_shares ps ON p.id = ps.project_id AND ps.user_id = ?
     WHERE p.is_active = 1 AND (p.owner_id = ? OR ps.permission IS NOT NULL)
     ORDER BY p.created_at DESC
-  `, [userId, userId, userId], (err, rows) => {
-    if (err) {
-      console.error('Database error:', err);
-      return res.status(500).json({
-        success: false,
-        message: 'Database error'
+  `,
+    [userId, userId, userId],
+    (err, rows) => {
+      if (err) {
+        console.error('Database error:', err);
+        return res.status(500).json({
+          success: false,
+          message: 'Database error',
+        });
+      }
+
+      res.json({
+        success: true,
+        projects: rows,
       });
     }
-
-    res.json({
-      success: true,
-      projects: rows
-    });
-  });
+  );
 });
 
 app.post('/api/projects', requireAuth, (req, res) => {
@@ -696,7 +780,7 @@ app.post('/api/projects', requireAuth, (req, res) => {
   if (!name) {
     return res.status(400).json({
       success: false,
-      message: 'Project name is required'
+      message: 'Project name is required',
     });
   }
 
@@ -706,33 +790,37 @@ app.post('/api/projects', requireAuth, (req, res) => {
   if (cleanName !== name || cleanName.length < 1) {
     return res.status(400).json({
       success: false,
-      message: 'Invalid project name'
+      message: 'Invalid project name',
     });
   }
 
-  db.run(`
+  db.run(
+    `
     INSERT INTO projects (name, description, owner_id)
     VALUES (?, ?, ?)
-  `, [cleanName, cleanDescription, userId], function(err) {
-    if (err) {
-      console.error('Database error:', err);
-      return res.status(500).json({
-        success: false,
-        message: 'Database error'
+  `,
+    [cleanName, cleanDescription, userId],
+    function (err) {
+      if (err) {
+        console.error('Database error:', err);
+        return res.status(500).json({
+          success: false,
+          message: 'Database error',
+        });
+      }
+
+      res.status(201).json({
+        success: true,
+        message: 'Project created successfully',
+        project: {
+          id: this.lastID,
+          name: cleanName,
+          description: cleanDescription,
+          owner_id: userId,
+        },
       });
     }
-
-    res.status(201).json({
-      success: true,
-      message: 'Project created successfully',
-      project: {
-        id: this.lastID,
-        name: cleanName,
-        description: cleanDescription,
-        owner_id: userId
-      }
-    });
-  });
+  );
 });
 
 // Analytics data retrieval
@@ -744,12 +832,13 @@ app.get('/api/stats/:projectId', requireAuth, requireProjectAccess, (req, res) =
   if (isNaN(days) || days < 1 || days > 365) {
     return res.status(400).json({
       success: false,
-      message: 'Invalid period (1-365 days)'
+      message: 'Invalid period (1-365 days)',
     });
   }
 
   // Get summary statistics
-  db.get(`
+  db.get(
+    `
     SELECT
       COUNT(*) as total_views,
       COUNT(DISTINCT url) as unique_pages,
@@ -757,17 +846,20 @@ app.get('/api/stats/:projectId', requireAuth, requireProjectAccess, (req, res) =
       COUNT(DISTINCT ip_hash) as unique_visitors
     FROM analytics
     WHERE project_id = ? AND timestamp >= datetime('now', '-${days} days')
-  `, [projectId], (err, summary) => {
-    if (err) {
-      console.error('Database error:', err);
-      return res.status(500).json({
-        success: false,
-        message: 'Database error'
-      });
-    }
+  `,
+    [projectId],
+    (err, summary) => {
+      if (err) {
+        console.error('Database error:', err);
+        return res.status(500).json({
+          success: false,
+          message: 'Database error',
+        });
+      }
 
-    // Get top pages
-    db.all(`
+      // Get top pages
+      db.all(
+        `
       SELECT
         url,
         COUNT(*) as views,
@@ -777,17 +869,20 @@ app.get('/api/stats/:projectId', requireAuth, requireProjectAccess, (req, res) =
       GROUP BY url
       ORDER BY views DESC
       LIMIT 20
-    `, [projectId], (err, topPages) => {
-      if (err) {
-        console.error('Database error:', err);
-        return res.status(500).json({
-          success: false,
-          message: 'Database error'
-        });
-      }
+    `,
+        [projectId],
+        (err, topPages) => {
+          if (err) {
+            console.error('Database error:', err);
+            return res.status(500).json({
+              success: false,
+              message: 'Database error',
+            });
+          }
 
-      // Get referrer data
-      db.all(`
+          // Get referrer data
+          db.all(
+            `
         SELECT
           referrer,
           COUNT(*) as count
@@ -796,39 +891,43 @@ app.get('/api/stats/:projectId', requireAuth, requireProjectAccess, (req, res) =
         GROUP BY referrer
         ORDER BY count DESC
         LIMIT 10
-      `, [projectId], (err, referrers) => {
-        if (err) {
-          console.error('Database error:', err);
-          return res.status(500).json({
-            success: false,
-            message: 'Database error'
-          });
-        }
+      `,
+            [projectId],
+            (err, referrers) => {
+              if (err) {
+                console.error('Database error:', err);
+                return res.status(500).json({
+                  success: false,
+                  message: 'Database error',
+                });
+              }
 
-        res.json({
-          success: true,
-          period: `${days} days`,
-          summary,
-          topPages,
-          referrers
-        });
-      });
-    });
-  });
+              res.json({
+                success: true,
+                period: `${days} days`,
+                summary,
+                topPages,
+                referrers,
+              });
+            }
+          );
+        }
+      );
+    }
+  );
 });
 
-// Error handling middleware
+// Error handling middleware (next required by Express signature)
+// eslint-disable-next-line no-unused-vars
 app.use((err, req, res, next) => {
   console.error('Unhandled error:', err);
 
   // Don't leak error details in production
-  const message = NODE_ENV === 'production'
-    ? 'Internal server error'
-    : err.message;
+  const message = NODE_ENV === 'production' ? 'Internal server error' : err.message;
 
   res.status(500).json({
     success: false,
-    message
+    message,
   });
 });
 
@@ -836,7 +935,7 @@ app.use((err, req, res, next) => {
 app.use((req, res) => {
   res.status(404).json({
     success: false,
-    message: 'Endpoint not found'
+    message: 'Endpoint not found',
   });
 });
 
@@ -858,129 +957,30 @@ process.on('SIGINT', () => {
   }
 });
 
-// Start server
+// Start server (skip listen in test mode for supertest)
 async function startServer() {
   try {
     await initializeDatabase();
-
-    app.listen(PORT, () => {
-      console.log(`🚀 RAT Analytics server running on port ${PORT}`);
-      console.log(`📊 Privacy-first analytics platform`);
-      console.log(`🔒 Security: ${NODE_ENV === 'production' ? 'Production mode' : 'Development mode'}`);
-      console.log(`📁 Database: ${DATABASE_PATH}`);
-      console.log(`🌐 Access dashboard at: http://localhost:${PORT}`);
-    });
+    if (NODE_ENV !== 'test') {
+      app.listen(PORT, () => {
+        console.log(`🚀 RAT Analytics server running on port ${PORT}`);
+        console.log('📊 Privacy-first analytics platform');
+        console.log(
+          `🔒 Security: ${NODE_ENV === 'production' ? 'Production mode' : 'Development mode'}`
+        );
+        console.log(`📁 Database: ${DATABASE_PATH}`);
+        console.log(`🌐 Access dashboard at: http://localhost:${PORT}`);
+      });
+    }
   } catch (error) {
     console.error('❌ Failed to start server:', error);
     process.exit(1);
   }
 }
 
-startServer();
-  // Users table
-  db.run(`
-    CREATE TABLE IF NOT EXISTS users (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      username TEXT UNIQUE NOT NULL,
-      password_hash TEXT NOT NULL,
-      role TEXT DEFAULT 'viewer' CHECK (role IN ('admin', 'viewer')),
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      last_login DATETIME
-    )
-  `);
+const serverReady = startServer();
 
-  // Projects table
-  db.run(`
-    CREATE TABLE IF NOT EXISTS projects (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      name TEXT NOT NULL CHECK (length(name) >= 1 AND length(name) <= 100),
-      owner_id INTEGER NOT NULL,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY (owner_id) REFERENCES users (id) ON DELETE CASCADE
-    )
-  `);
-
-  // Updated page_views table
-  db.run(`
-    CREATE TABLE IF NOT EXISTS page_views (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      project_id INTEGER NOT NULL,
-      url TEXT NOT NULL,
-      referrer TEXT,
-      user_agent TEXT,
-      ip_address TEXT,
-      timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY (project_id) REFERENCES projects (id) ON DELETE CASCADE
-    )
-  `);
-
-  // Shares table for sharing projects
-  db.run(`
-    CREATE TABLE IF NOT EXISTS shares (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      project_id INTEGER NOT NULL,
-      user_id INTEGER NOT NULL,
-      permissions TEXT DEFAULT 'view' CHECK (permissions IN ('view', 'admin')),
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY (project_id) REFERENCES projects (id) ON DELETE CASCADE,
-      FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE,
-      UNIQUE(project_id, user_id)
-    )
-  `);
-
-  // Create default admin user only if no users exist and SETUP_ADMIN is true
-  if (process.env.SETUP_ADMIN === 'true') {
-    db.get('SELECT COUNT(*) as count FROM users', [], (err, result) => {
-      if (!err && result.count === 0) {
-        const defaultUsername = process.env.DEFAULT_ADMIN_USERNAME || 'admin';
-        const defaultPassword = process.env.DEFAULT_ADMIN_PASSWORD;
-
-        if (defaultPassword) {
-          const saltRounds = 10;
-          bcrypt.hash(defaultPassword, saltRounds, (err, hash) => {
-            if (err) {
-              console.error('Error hashing default admin password:', err);
-            } else {
-              db.run(`
-                INSERT INTO users (username, password_hash, role)
-                VALUES (?, ?, 'admin')
-              `, [defaultUsername, hash], (err) => {
-                if (err) {
-                  console.error('Error creating default admin user:', err);
-                } else {
-                  console.log('Default admin user created. Please change the password after first login.');
-                }
-              });
-            }
-          });
-        }
-      }
-    });
-  }
-});
-
-// Input validation and sanitization
-function sanitizeString(str, maxLength = 1000) {
-  if (typeof str !== 'string') return '';
-  return str.trim().substring(0, maxLength).replace(/[<>'"&]/g, '');
-}
-
-function validateUrl(url) {
-  try {
-    const parsedUrl = new URL(url);
-    return ['http:', 'https:'].includes(parsedUrl.protocol);
-  } catch {
-    return false;
-  }
-}
-
-function validatePassword(password) {
-  // At least 8 characters, 1 uppercase, 1 lowercase, 1 number
-  const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)[a-zA-Z\d@$!%*?&]{8,}$/;
-  return passwordRegex.test(password);
-}
-
-// Login routes
+// Login routes (duplicate - first definition wins; these are legacy)
 app.get('/login', (req, res) => {
   if (req.session.userId) {
     return res.redirect('/');
@@ -1001,37 +1001,41 @@ app.post('/login', (req, res) => {
     return res.status(400).json({ error: 'Invalid username format' });
   }
 
-  db.get('SELECT id, username, password_hash, role FROM users WHERE username = ?', [cleanUsername], (err, user) => {
-    if (err) {
-      console.error('Database error:', err);
-      return res.status(500).json({ error: 'Authentication service temporarily unavailable' });
-    }
-
-    if (!user) {
-      // Don't reveal if username exists or not for security
-      return res.status(401).json({ error: 'Invalid credentials' });
-    }
-
-    bcrypt.compare(password, user.password_hash, (err, result) => {
+  db.get(
+    'SELECT id, username, password_hash, role FROM users WHERE username = ?',
+    [cleanUsername],
+    (err, user) => {
       if (err) {
-        console.error('Password comparison error:', err);
+        console.error('Database error:', err);
         return res.status(500).json({ error: 'Authentication service temporarily unavailable' });
       }
 
-      if (result) {
-        req.session.userId = user.id;
-        req.session.username = user.username;
-        req.session.role = user.role;
-
-        // Update last login
-        db.run('UPDATE users SET last_login = CURRENT_TIMESTAMP WHERE id = ?', [user.id]);
-
-        res.json({ success: true, user: { username: user.username, role: user.role } });
-      } else {
-        res.status(401).json({ error: 'Invalid credentials' });
+      if (!user) {
+        // Don't reveal if username exists or not for security
+        return res.status(401).json({ error: 'Invalid credentials' });
       }
-    });
-  });
+
+      bcrypt.compare(password, user.password_hash, (err, result) => {
+        if (err) {
+          console.error('Password comparison error:', err);
+          return res.status(500).json({ error: 'Authentication service temporarily unavailable' });
+        }
+
+        if (result) {
+          req.session.userId = user.id;
+          req.session.username = user.username;
+          req.session.role = user.role;
+
+          // Update last login
+          db.run('UPDATE users SET last_login = CURRENT_TIMESTAMP WHERE id = ?', [user.id]);
+
+          res.json({ success: true, user: { username: user.username, role: user.role } });
+        } else {
+          res.status(401).json({ error: 'Invalid credentials' });
+        }
+      });
+    }
+  );
 });
 
 app.post('/logout', (req, res) => {
@@ -1067,11 +1071,12 @@ app.post('/track', (req, res) => {
   const cleanUserAgent = userAgent ? sanitizeString(userAgent, 500) : '';
 
   // Get client IP (handle proxy headers)
-  const clientIP = req.headers['x-forwarded-for']?.split(',')[0]?.trim() ||
-                   req.headers['x-real-ip'] ||
-                   req.connection.remoteAddress ||
-                   req.socket.remoteAddress ||
-                   'unknown';
+  const clientIP =
+    req.headers['x-forwarded-for']?.split(',')[0]?.trim() ||
+    req.headers['x-real-ip'] ||
+    req.connection.remoteAddress ||
+    req.socket.remoteAddress ||
+    'unknown';
 
   // Check if project exists
   db.get('SELECT id FROM projects WHERE id = ?', [projectIdNum], (err, project) => {
@@ -1138,7 +1143,7 @@ app.post('/api/projects', requireAuth, (req, res) => {
   }
 
   const stmt = db.prepare('INSERT INTO projects (name, owner_id) VALUES (?, ?)');
-  stmt.run(name, ownerId, function(err) {
+  stmt.run(name, ownerId, function (err) {
     if (err) {
       console.error('Database error:', err);
       return res.status(500).json({ error: 'Failed to create project' });
@@ -1155,16 +1160,20 @@ app.get('/api/stats/:projectId', requireAuth, (req, res) => {
 
   // Check access
   if (role !== 'admin') {
-    db.get(`
+    db.get(
+      `
       SELECT 1 FROM projects p
       LEFT JOIN shares s ON p.id = s.project_id AND s.user_id = ?
       WHERE p.id = ? AND (p.owner_id = ? OR s.user_id IS NOT NULL)
-    `, [userId, projectId, userId], (err, result) => {
-      if (err || !result) {
-        return res.status(403).json({ error: 'Access denied' });
+    `,
+      [userId, projectId, userId],
+      (err, result) => {
+        if (err || !result) {
+          return res.status(403).json({ error: 'Access denied' });
+        }
+        getStats();
       }
-      getStats();
-    });
+    );
   } else {
     getStats();
   }
@@ -1195,13 +1204,17 @@ app.get('/api/stats/:projectId', requireAuth, (req, res) => {
 
 // User management (admin only)
 app.get('/api/users', requireAdmin, (req, res) => {
-  db.all('SELECT id, username, role, created_at FROM users ORDER BY created_at DESC', [], (err, rows) => {
-    if (err) {
-      console.error('Database error:', err);
-      return res.status(500).json({ error: 'Failed to fetch users' });
+  db.all(
+    'SELECT id, username, role, created_at FROM users ORDER BY created_at DESC',
+    [],
+    (err, rows) => {
+      if (err) {
+        console.error('Database error:', err);
+        return res.status(500).json({ error: 'Failed to fetch users' });
+      }
+      res.json(rows);
     }
-    res.json(rows);
-  });
+  );
 });
 
 app.post('/api/users', requireAdmin, (req, res) => {
@@ -1214,12 +1227,14 @@ app.post('/api/users', requireAdmin, (req, res) => {
 
   const cleanUsername = sanitizeString(username, 50);
   if (cleanUsername !== username || cleanUsername.length < 3) {
-    return res.status(400).json({ error: 'Username must be 3-50 characters and contain only valid characters' });
+    return res
+      .status(400)
+      .json({ error: 'Username must be 3-50 characters and contain only valid characters' });
   }
 
   if (!validatePassword(password)) {
     return res.status(400).json({
-      error: 'Password must be at least 8 characters with uppercase, lowercase, and number'
+      error: 'Password must be at least 8 characters with uppercase, lowercase, and number',
     });
   }
 
@@ -1237,7 +1252,7 @@ app.post('/api/users', requireAdmin, (req, res) => {
     }
 
     const stmt = db.prepare('INSERT INTO users (username, password_hash, role) VALUES (?, ?, ?)');
-    stmt.run(cleanUsername, hash, userRole, function(err) {
+    stmt.run(cleanUsername, hash, userRole, function (err) {
       stmt.finalize();
       if (err) {
         console.error('Database error:', err);
@@ -1249,7 +1264,7 @@ app.post('/api/users', requireAdmin, (req, res) => {
       res.status(201).json({
         id: this.lastID,
         username: cleanUsername,
-        role: userRole
+        role: userRole,
       });
     });
   });
@@ -1270,7 +1285,7 @@ app.put('/api/users/:id/password', requireAuth, (req, res) => {
 
   if (!validatePassword(newPassword)) {
     return res.status(400).json({
-      error: 'New password must be at least 8 characters with uppercase, lowercase, and number'
+      error: 'New password must be at least 8 characters with uppercase, lowercase, and number',
     });
   }
 
@@ -1324,7 +1339,7 @@ app.get('/health', (req, res) => {
     res.json({
       status: 'ok',
       timestamp: new Date().toISOString(),
-      version: process.env.npm_package_version || '1.1.1'
+      version: process.env.npm_package_version || '1.1.1',
     });
   });
 });
@@ -1346,7 +1361,9 @@ app.post('/api/projects/:projectId/share', requireAuth, (req, res) => {
       return res.status(403).json({ error: 'Access denied' });
     }
 
-    const stmt = db.prepare('INSERT OR REPLACE INTO shares (project_id, user_id, permissions) VALUES (?, ?, ?)');
+    const stmt = db.prepare(
+      'INSERT OR REPLACE INTO shares (project_id, user_id, permissions) VALUES (?, ?, ?)'
+    );
     stmt.run(projectId, userId, permissions || 'view', (err) => {
       if (err) {
         console.error('Database error:', err);
@@ -1362,15 +1379,8 @@ app.get('/api/user', requireAuth, (req, res) => {
   res.json({
     id: req.session.userId,
     username: req.session.username,
-    role: req.session.role
+    role: req.session.role,
   });
-});
-
-// SEO routes
-app.get('/sitemap.xml', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'sitemap.xml'));
-});
-
 });
 
 // SEO routes
@@ -1382,10 +1392,5 @@ app.get('/robots.txt', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'robots.txt'));
 });
 
-app.listen(PORT, () => {
-  console.log(`Analytics server running on port ${PORT}`);
-  console.log('🐀 RAT Analytics - Open-source edition');
-  console.log('📊 Privacy-first analytics platform');
-});
-
 module.exports = app;
+module.exports.ready = serverReady;

@@ -57,34 +57,57 @@ async function initDemoData() {
     // Insert demo users
     const demoUsers = [
       { username: 'admin', password: 'demo123', role: 'admin' },
-      { username: 'analyst', password: 'demo123', role: 'viewer' }
+      { username: 'analyst', password: 'demo123', role: 'viewer' },
     ];
 
     demoUsers.forEach(async (user) => {
       const hash = await bcrypt.hash(user.password, 10);
-      db.run(
-        'INSERT OR IGNORE INTO users (username, password_hash, role) VALUES (?, ?, ?)',
-        [user.username, hash, user.role]
-      );
+      db.run('INSERT OR IGNORE INTO users (username, password_hash, role) VALUES (?, ?, ?)', [
+        user.username,
+        hash,
+        user.role,
+      ]);
     });
 
     // Insert demo projects
     setTimeout(() => {
-      db.run(
-        'INSERT OR IGNORE INTO projects (name, description, owner_id) VALUES (?, ?, ?)',
-        ['Demo Website', 'Sample analytics project', 1]
-      );
+      db.run('INSERT OR IGNORE INTO projects (name, description, owner_id) VALUES (?, ?, ?)', [
+        'Demo Website',
+        'Sample analytics project',
+        1,
+      ]);
 
       // Insert sample analytics data
       setTimeout(() => {
         const sampleData = [
-          { project_id: 1, url: 'https://demo-site.com/', referrer: 'https://google.com', user_agent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' },
-          { project_id: 1, url: 'https://demo-site.com/about', referrer: 'https://demo-site.com/', user_agent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36' },
-          { project_id: 1, url: 'https://demo-site.com/contact', referrer: 'https://demo-site.com/about', user_agent: 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36' },
-          { project_id: 1, url: 'https://demo-site.com/blog', referrer: 'https://reddit.com/r/analytics', user_agent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 15_0 like Mac OS X) AppleWebKit/605.1.15' }
+          {
+            project_id: 1,
+            url: 'https://demo-site.com/',
+            referrer: 'https://google.com',
+            user_agent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+          },
+          {
+            project_id: 1,
+            url: 'https://demo-site.com/about',
+            referrer: 'https://demo-site.com/',
+            user_agent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36',
+          },
+          {
+            project_id: 1,
+            url: 'https://demo-site.com/contact',
+            referrer: 'https://demo-site.com/about',
+            user_agent: 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36',
+          },
+          {
+            project_id: 1,
+            url: 'https://demo-site.com/blog',
+            referrer: 'https://reddit.com/r/analytics',
+            user_agent:
+              'Mozilla/5.0 (iPhone; CPU iPhone OS 15_0 like Mac OS X) AppleWebKit/605.1.15',
+          },
         ];
 
-        sampleData.forEach(data => {
+        sampleData.forEach((data) => {
           db.run(
             'INSERT OR IGNORE INTO analytics (project_id, url, referrer, user_agent, created_at) VALUES (?, ?, ?, ?, datetime("now", "-" || (RANDOM() % 30) || " days"))',
             [data.project_id, data.url, data.referrer, data.user_agent]

@@ -98,6 +98,7 @@ npm start
 ### AWS
 
 #### Option 1: Lightsail (Simple)
+
 ```bash
 # Create Lightsail instance
 aws lightsail create-instances \
@@ -114,6 +115,7 @@ npm start
 ```
 
 #### Option 2: ECS with Fargate
+
 - Use the provided Dockerfile
 - Set up ECS cluster
 - Configure load balancer
@@ -122,6 +124,7 @@ npm start
 ### Google Cloud
 
 #### Cloud Run (Serverless)
+
 ```bash
 # Build and deploy
 gcloud run deploy rat-analytics \
@@ -132,6 +135,7 @@ gcloud run deploy rat-analytics \
 ```
 
 #### App Engine
+
 ```yaml
 # app.yaml
 runtime: nodejs18
@@ -142,6 +146,7 @@ env_variables:
 ### Azure
 
 #### App Service
+
 ```bash
 # Deploy to App Service
 az webapp up \
@@ -149,8 +154,6 @@ az webapp up \
   --resource-group myResourceGroup \
   --runtime "NODE:18-lts"
 ```
-
-
 
 Perfect for single instances and development:
 
@@ -194,15 +197,15 @@ When switching databases:
 
 ## Environment Variables Reference
 
-| Variable | Required | Default | Description |
-|----------|----------|---------|-------------|
-| `SESSION_SECRET` | Yes | - | Secret for session encryption |
-| `PORT` | No | 3000 | Server port |
-| `NODE_ENV` | No | development | Environment mode |
-| `ALLOWED_ORIGINS` | No | http://localhost:3000 | CORS allowed origins |
-| `DATABASE_URL` | No | - | Full database connection URL |
-| `DATABASE_PATH` | No | ./analytics.db | SQLite database path |
-| `DEMO_MODE` | No | false | Enable demo features |
+| Variable          | Required | Default               | Description                   |
+| ----------------- | -------- | --------------------- | ----------------------------- |
+| `SESSION_SECRET`  | Yes      | -                     | Secret for session encryption |
+| `PORT`            | No       | 3000                  | Server port                   |
+| `NODE_ENV`        | No       | development           | Environment mode              |
+| `ALLOWED_ORIGINS` | No       | http://localhost:3000 | CORS allowed origins          |
+| `DATABASE_URL`    | No       | -                     | Full database connection URL  |
+| `DATABASE_PATH`   | No       | ./analytics.db        | SQLite database path          |
+| `DEMO_MODE`       | No       | false                 | Enable demo features          |
 
 ## Monitoring & Maintenance
 
@@ -238,6 +241,7 @@ pg_dump rat_db > backup-$(date +%Y%m%d).sql
 ### Common Issues
 
 1. **Port already in use**
+
    ```bash
    # Find process using port 3000
    lsof -i :3000

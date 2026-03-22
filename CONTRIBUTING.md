@@ -49,6 +49,7 @@ PRs that improve documentation, fix bugs, or add privacy-preserving features are
 ## Privacy Considerations
 
 When contributing, always consider privacy implications:
+
 - Avoid collecting unnecessary data
 - Ensure data is handled securely
 - Respect user privacy in all features

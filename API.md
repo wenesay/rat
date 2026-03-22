@@ -21,6 +21,7 @@ Content-Type: application/json
 ```
 
 Response:
+
 ```json
 {
   "success": true
@@ -34,6 +35,7 @@ POST /logout
 ```
 
 Response:
+
 ```json
 {
   "success": true
@@ -57,6 +59,7 @@ Content-Type: application/json
 ```
 
 Response:
+
 ```json
 {
   "success": true
@@ -71,6 +74,7 @@ Authorization: Required
 ```
 
 Response:
+
 ```json
 [
   {
@@ -92,6 +96,7 @@ Authorization: Required
 ```
 
 Response:
+
 ```json
 [
   {
@@ -116,6 +121,7 @@ Content-Type: application/json
 ```
 
 Response:
+
 ```json
 {
   "id": 2,
@@ -138,6 +144,7 @@ Content-Type: application/json
 ```
 
 Response:
+
 ```json
 {
   "success": true
@@ -154,6 +161,7 @@ Authorization: Admin Required
 ```
 
 Response:
+
 ```json
 [
   {
@@ -180,6 +188,7 @@ Content-Type: application/json
 ```
 
 Response:
+
 ```json
 {
   "id": 2,
@@ -202,6 +211,7 @@ Content-Type: application/json
 ```
 
 Response:
+
 ```json
 {
   "success": true
@@ -219,6 +229,7 @@ All endpoints may return error responses:
 ```
 
 Common HTTP status codes:
+
 - `200` - Success
 - `400` - Bad Request
 - `401` - Unauthorized

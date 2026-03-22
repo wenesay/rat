@@ -5,6 +5,7 @@ This directory contains demo configurations for showcasing RAT Analytics.
 ## Quick Demo Setup
 
 1. **Clone and setup:**
+
    ```bash
    git clone https://github.com/wenesay/rat.git
    cd rat
@@ -13,6 +14,7 @@ This directory contains demo configurations for showcasing RAT Analytics.
    ```
 
 2. **Run demo:**
+
    ```bash
    docker-compose -f docker-compose.demo.yml up -d
    ```
