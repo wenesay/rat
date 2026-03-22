@@ -1,10 +1,10 @@
 # Privacy Policy
 
-**Last Updated: March 21, 2026**
+**Last Updated: March 22, 2026**
 
 ## 1. Introduction
 
-RAT Analytics ("we", "us", or "our") is committed to protecting your privacy. This Privacy Policy explains how we collect, use, and safeguard information when you use our self-hosted analytics platform.
+Real Analytics Tracker (RAT) is open-source software for self-hosted, privacy-focused web analytics. This Privacy Policy describes the data practices of the **RAT software** when you deploy and use it on your own infrastructure. The project maintainers do not operate a hosted service and do not collect or store your analytics data.
 
 ## 2. Information We Collect
 
@@ -24,14 +24,16 @@ For dashboard access, we collect:
 - **Project Data**: Project names, settings, and configurations
 - **Usage Logs**: Login times and dashboard activity
 
-### 2.3 What We Don't Collect
-We explicitly do NOT collect:
+### 2.3 What RAT Does NOT Collect
+The RAT client-side script does not use:
 
 - Personal identifiable information (PII)
-- IP addresses
-- Cookies or tracking identifiers
+- Cookies or localStorage
+- Persistent tracking identifiers
 - User behavior data (mouse movements, clicks)
 - Any data that could identify individual users
+
+RAT respects the Do Not Track (DNT) browser setting.
 
 ## 3. How We Use Information
 
@@ -92,7 +94,7 @@ You can delete your data at any time through the dashboard or by removing the da
 
 ## 7. Cookies and Tracking
 
-RAT Analytics does not use cookies or any persistent tracking mechanisms. All data collection is anonymous and session-based.
+RAT does not use cookies, localStorage, or any persistent tracking mechanisms. Data collection is anonymous and does not persist identifiers across sessions on the client side.
 
 ## 8. International Data Transfers
 
@@ -114,9 +116,9 @@ RAT Analytics is designed to comply with:
 - **CCPA** (California Consumer Privacy Act)
 - **Other privacy regulations** as applicable
 
-## 12. Contact Us
+## 12. Contact
 
-If you have questions about this Privacy Policy, please contact us:
+For questions about this Privacy Policy or the RAT software:
 
 - GitHub Issues: https://github.com/wenesay/rat/issues
 - Repository: https://github.com/wenesay/rat

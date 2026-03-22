@@ -402,66 +402,63 @@ app.post('/track', (req, res) => {
   });
 });
 
-// Get analytics script
+// Get analytics script (industry-standard: DNT, no cookies/localStorage, sendBeacon)
 app.get('/snippet/analytics.js', (req, res) => {
-  const script = `
-(function() {
-  // RAT Analytics - Privacy-First Tracking
-  // No cookies, no personal data, minimal footprint
+  const baseUrl = `${req.protocol}://${req.get('host')}`;
+  const trackEndpoint = `${baseUrl}/track`;
 
-  function getSessionId() {
-    let sessionId = localStorage.getItem('rat_session');
-    if (!sessionId) {
-      sessionId = Math.random().toString(36).substring(2) + Date.now().toString(36);
-      localStorage.setItem('rat_session', sessionId);
-    }
-    return sessionId;
+  const script = `(function() {
+  'use strict';
+  // RAT Analytics - Privacy-First, Open-Source
+  // No cookies, no localStorage, no persistent identifiers. Respects DNT.
+
+  if (navigator.doNotTrack === '1' || window.doNotTrack === '1') return;
+
+  var projectId = window.ratAnalyticsProjectId;
+  if (!projectId) {
+    var meta = document.querySelector('meta[name="rat-analytics-project"]');
+    if (meta) projectId = meta.getAttribute('content');
+  }
+  if (!projectId) {
+    var m = document.querySelector('meta[name="rat-project-id"]');
+    if (m) projectId = m.getAttribute('content');
+  }
+  if (!projectId) {
+    console.warn('RAT: Set window.ratAnalyticsProjectId or <meta name="rat-analytics-project" content="YOUR_PROJECT_ID">');
+    return;
   }
 
-  function trackPageView() {
-    const data = {
-      projectId: window.ratAnalyticsProjectId || document.querySelector('meta[name="rat-project-id"]')?.content,
-      url: window.location.href,
-      referrer: document.referrer || null,
-      userAgent: navigator.userAgent,
-      sessionId: getSessionId()
-    };
+  var endpoint = '${trackEndpoint}';
+  var data = {
+    projectId: projectId,
+    url: window.location.href,
+    referrer: document.referrer || '',
+    userAgent: navigator.userAgent
+  };
+  var payload = JSON.stringify(data);
 
-    if (!data.projectId) {
-      console.warn('RAT Analytics: No projectId found. Set window.ratAnalyticsProjectId or add <meta name="rat-project-id" content="YOUR_PROJECT_ID">');
-      return;
-    }
-
-    // Send data asynchronously
-    fetch('${req.protocol}://${req.get('host')}/track', {
+  function send() {
+    if (navigator.sendBeacon && navigator.sendBeacon(endpoint, new Blob([payload], { type: 'application/json' }))) return;
+    fetch(endpoint, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(data),
-      keepalive: true // Send even if page unloads
-    }).catch(err => {
-      console.warn('RAT Analytics: Failed to send data', err);
-    });
+      headers: { 'Content-Type': 'application/json' },
+      body: payload,
+      keepalive: true
+    }).catch(function() {});
   }
 
-  // Track initial page view
-  trackPageView();
+  send();
 
-  // Track on navigation (SPA support)
-  let currentUrl = window.location.href;
-  const observer = new MutationObserver(() => {
-    if (window.location.href !== currentUrl) {
-      currentUrl = window.location.href;
-      setTimeout(trackPageView, 100); // Small delay for SPA updates
-    }
-  });
-  observer.observe(document.body, { childList: true, subtree: true });
+  if (typeof window.history !== 'undefined' && typeof window.history.pushState === 'function') {
+    var orig = history.pushState;
+    history.pushState = function() { orig.apply(this, arguments); setTimeout(send, 0); };
+    window.addEventListener('popstate', function() { setTimeout(send, 0); });
+  }
 })();
 `;
 
   res.setHeader('Content-Type', 'application/javascript');
-  res.setHeader('Cache-Control', 'public, max-age=3600'); // Cache for 1 hour
+  res.setHeader('Cache-Control', 'public, max-age=3600');
   res.send(script);
 });
 
@@ -982,11 +979,6 @@ function validatePassword(password) {
   const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)[a-zA-Z\d@$!%*?&]{8,}$/;
   return passwordRegex.test(password);
 }
-
-// Routes
-app.get('/snippet/analytics.js', (req, res) => {
-  res.sendFile(path.join(__dirname, 'snippet', 'analytics.js'));
-});
 
 // Login routes
 app.get('/login', (req, res) => {

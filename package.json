@@ -32,7 +32,7 @@
     "sqlite",
     "express"
   ],
-  "author": "RAT Analytics Team",
+  "author": "RAT Contributors (https://github.com/wenesay/rat)",
   "license": "MIT",
   "repository": {
     "type": "git",

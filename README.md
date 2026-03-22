@@ -4,9 +4,9 @@
 [![Node.js Version](https://img.shields.io/badge/node-%3E%3D14.0.0-brightgreen)](https://nodejs.org/)
 [![Docker](https://img.shields.io/badge/docker-ready-blue)](https://docker.com/)
 
-> **Real Analytics Tracker (RAT)** - A privacy-focused, lightweight analytics platform that puts user privacy first while providing powerful insights for website owners.
+> **Real Analytics Tracker (RAT)** — Open-source, privacy-focused, self-hosted web analytics. No cookies, no invasive tracking. GDPR/CCPA friendly.
 
-**RAT** is a self-hosted, open-source analytics solution designed for developers and businesses who value user privacy. Unlike traditional analytics platforms, RAT collects only essential data without cookies or invasive tracking, ensuring compliance with privacy regulations like GDPR and CCPA.
+**RAT** is public, open-source software. Clone, fork, and contribute via pull requests. It is maintained by an individual developer and improved by the community. You self-host RAT on your own infrastructure and retain full control of your data.
 
 ## ✨ Features
 
@@ -14,7 +14,7 @@
 - 📊 **Project-Based Analytics**: Organize your analytics by projects with granular access control
 - 👥 **Multi-User Support**: Admin and viewer roles with secure authentication
 - 🔗 **Project Sharing**: Share analytics access with team members or clients
-- ⚡ **Lightweight**: Minimal JavaScript snippet that doesn't impact page performance
+- ⚡ **Lightweight**: Industry-standard snippet (respects DNT, uses sendBeacon, no cookies/localStorage)
 - 🐳 **Easy Deployment**: Docker-ready with SQLite database (no external dependencies)
 - 📱 **Responsive Dashboard**: Clean, modern interface for viewing analytics
 - 🔐 **Secure**: Password hashing, session management, and role-based access control
@@ -55,14 +55,9 @@ Access your dashboard at `http://localhost:3000`
 
 **Default credentials:** `admin` / `admin` (change immediately!)
 
-### Option 2: Managed Hosting (Coming Soon)
+### Option 2: Managed Hosting (Optional)
 
-Prefer zero setup and maintenance? [Join the waitlist for RAT Analytics Managed](https://cloudrat.io) - coming soon with:
-- ☁️ **Zero Setup**: Start tracking in minutes
-- 🔄 **Automatic Updates**: We handle maintenance
-- 💡 **Focus on Insights**: Let us manage infrastructure
-
-Both options provide the same privacy-first analytics. Choose based on your preference for control vs. convenience.
+Prefer zero setup? A managed hosting option may be available separately (e.g., cloudrat.io). This repository contains only the self-hosted open-source software. For managed hosting, refer to that provider's terms and documentation.
 
 ## 📋 Table of Contents
 
@@ -324,7 +319,9 @@ Include the tracking code in the `<head>` section of your website:
 
 **Replace:**
 - `your-project-id-here` with your actual project ID
-- `https://your-rat-server.com` with your RAT server URL
+- `https://your-rat-server.com` with your self-hosted RAT server URL
+
+The snippet auto-detects its endpoint from the script URL, respects Do Not Track (DNT), and uses `sendBeacon` for reliable delivery.
 
 ### Advanced Usage
 
@@ -485,7 +482,7 @@ npm install && npm start
 
 ---
 
-**Made with ❤️ by the [RAT Analytics Team](https://github.com/wenesay/rat)**
+**Open-source • Community contributions welcome** — [Fork and contribute](CONTRIBUTING.md) | [Report issues](https://github.com/wenesay/rat/issues)
 
 ⭐ Star this repo if you find it useful!
 

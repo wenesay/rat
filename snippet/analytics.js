@@ -1,43 +1,58 @@
-// Rat Analytics Snippet
-// Privacy-focused, lightweight analytics
+/**
+ * RAT Analytics - Privacy-First, Open-Source
+ * https://github.com/wenesay/rat
+ *
+ * No cookies, no localStorage, no persistent identifiers. Respects DNT.
+ * This file is a reference. The server normally serves a dynamic script at
+ * /snippet/analytics.js with the endpoint auto-injected. For static hosting,
+ * replace TRACK_ENDPOINT below with your RAT server URL + /track
+ */
 (function() {
-  // Configuration
-  var endpoint = 'https://your-analytics-server.com/track'; // Replace with your server URL
+  'use strict';
 
-  // Get project ID from global variable or data attribute
+  if (navigator.doNotTrack === '1' || window.doNotTrack === '1') return;
+
   var projectId = window.ratAnalyticsProjectId;
   if (!projectId) {
-    // Try to find it in a meta tag
     var meta = document.querySelector('meta[name="rat-analytics-project"]');
-    if (meta) {
-      projectId = meta.getAttribute('content');
-    }
+    if (meta) projectId = meta.getAttribute('content');
   }
-
   if (!projectId) {
-    console.warn('Rat Analytics: No project ID found. Set window.ratAnalyticsProjectId or add <meta name="rat-analytics-project" content="YOUR_PROJECT_ID">');
+    meta = document.querySelector('meta[name="rat-project-id"]');
+    if (meta) projectId = meta.getAttribute('content');
+  }
+  if (!projectId) {
+    console.warn('RAT: Set window.ratAnalyticsProjectId or <meta name="rat-analytics-project" content="YOUR_PROJECT_ID">');
     return;
   }
 
-  // Collect data
+  // When served from /snippet/analytics.js, endpoint is auto-injected by server.
+  // For static use: set window.ratAnalyticsEndpoint or replace below.
+  var endpoint = window.ratAnalyticsEndpoint || 'https://your-rat-server.com/track';
+
   var data = {
     projectId: projectId,
     url: window.location.href,
-    referrer: document.referrer,
+    referrer: document.referrer || '',
     userAgent: navigator.userAgent
   };
+  var payload = JSON.stringify(data);
 
-  // Send data asynchronously (non-blocking)
-  var xhr = new XMLHttpRequest();
-  xhr.open('POST', endpoint, true);
-  xhr.setRequestHeader('Content-Type', 'application/json');
-  xhr.onreadystatechange = function() {
-    if (xhr.readyState === 4) {
-      // Optional: handle response
-      if (xhr.status !== 200) {
-        console.warn('Analytics tracking failed');
-      }
-    }
-  };
-  xhr.send(JSON.stringify(data));
+  function send() {
+    if (navigator.sendBeacon && navigator.sendBeacon(endpoint, new Blob([payload], { type: 'application/json' }))) return;
+    fetch(endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: payload,
+      keepalive: true
+    }).catch(function() {});
+  }
+
+  send();
+
+  if (typeof window.history !== 'undefined' && typeof window.history.pushState === 'function') {
+    var orig = history.pushState;
+    history.pushState = function() { orig.apply(this, arguments); setTimeout(send, 0); };
+    window.addEventListener('popstate', function() { setTimeout(send, 0); });
+  }
 })();

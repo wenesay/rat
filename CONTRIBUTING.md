@@ -1,6 +1,6 @@
 # Contributing to Real Analytics Tracker (RAT)
 
-Thank you for your interest in contributing to RAT! We welcome contributions from the community.
+Thank you for your interest in contributing! RAT is open-source software maintained by an individual developer. Contributions from the community—bug reports, feature suggestions, and pull requests—are very welcome.
 
 ## Code of Conduct
 
@@ -29,7 +29,9 @@ This project adheres to a [Code of Conduct](CODE_OF_CONDUCT.md). By participatin
 5. Ensure all tests pass: `npm test`
 6. Commit your changes: `git commit -am 'Add some feature'`
 7. Push to the branch: `git push origin feature/your-feature`
-8. Submit a pull request
+8. Open a pull request against the main repository
+
+PRs that improve documentation, fix bugs, or add privacy-preserving features are especially appreciated.
 
 ### Code Style
 
