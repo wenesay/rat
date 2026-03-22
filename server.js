@@ -81,7 +81,7 @@ app.use(
     },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-API-Key'],
   })
 );
 
@@ -186,6 +186,7 @@ function initializeDatabase() {
             description TEXT CHECK(length(description) <= 500),
             owner_id INTEGER NOT NULL,
             is_active BOOLEAN DEFAULT 1,
+            api_key TEXT UNIQUE,
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (owner_id) REFERENCES users (id) ON DELETE CASCADE
@@ -197,6 +198,8 @@ function initializeDatabase() {
               reject(err);
               return;
             }
+            // Migration: add api_key for existing DBs
+            db.run('ALTER TABLE projects ADD COLUMN api_key TEXT UNIQUE', () => {});
           }
         );
 
@@ -260,7 +263,7 @@ function initializeDatabase() {
                   [hash],
                   () => {
                     db.run(
-                      "INSERT OR IGNORE INTO projects (id, name, owner_id, is_active) VALUES (1, 'Test Project', 1, 1)",
+                      "INSERT OR IGNORE INTO projects (id, name, owner_id, is_active, api_key) VALUES (1, 'Test Project', 1, 1, 'test-api-key-12345')",
                       () => {
                         console.log('✅ Database schema initialized (test mode)');
                         resolve();
@@ -396,21 +399,59 @@ app.get('/health', (req, res) => {
 
 // Analytics tracking endpoint (public)
 app.post('/track', (req, res) => {
-  const { projectId, url, referrer, userAgent } = req.body;
+  const { projectId, url, referrer, userAgent, apiKey: bodyApiKey } = req.body;
+  const apiKey = req.headers['x-api-key'] || bodyApiKey;
 
-  // Validate required fields
-  if (!projectId || !url) {
+  // Resolve project: X-API-Key header takes precedence over projectId in body
+  const resolveProject = (callback) => {
+    if (apiKey) {
+      db.get(
+        'SELECT id FROM projects WHERE api_key = ? AND is_active = 1',
+        [apiKey],
+        (err, project) => {
+          if (err) return callback(err, null);
+          callback(null, project ? project.id : null);
+        }
+      );
+    } else if (projectId) {
+      const projectIdNum = parseInt(projectId);
+      if (isNaN(projectIdNum) || projectIdNum <= 0) {
+        return res.status(400).json({
+          success: false,
+          message: 'Invalid projectId',
+        });
+      }
+      db.get(
+        'SELECT id FROM projects WHERE id = ? AND is_active = 1',
+        [projectIdNum],
+        (err, project) => {
+          if (err) return callback(err, null);
+          callback(null, project ? project.id : null);
+        }
+      );
+    } else {
+      callback(null, null);
+    }
+  };
+
+  if (!url) {
     return res.status(400).json({
       success: false,
-      message: 'projectId and url are required',
+      message: 'url is required',
     });
   }
 
-  const projectIdNum = parseInt(projectId);
-  if (isNaN(projectIdNum) || projectIdNum <= 0) {
+  if (!validateUrl(url)) {
     return res.status(400).json({
       success: false,
-      message: 'Invalid projectId',
+      message: 'Invalid url format',
+    });
+  }
+
+  if (!apiKey && !projectId) {
+    return res.status(400).json({
+      success: false,
+      message: 'projectId or X-API-Key header is required',
     });
   }
 
@@ -419,55 +460,50 @@ app.post('/track', (req, res) => {
   const cleanReferrer = referrer ? sanitizeString(referrer, 2000) : null;
   const cleanUserAgent = userAgent ? sanitizeString(userAgent, 500) : null;
 
-  // Verify project exists and is active
-  db.get(
-    'SELECT id FROM projects WHERE id = ? AND is_active = 1',
-    [projectIdNum],
-    (err, project) => {
-      if (err) {
-        console.error('Database error:', err);
-        return res.status(500).json({
-          success: false,
-          message: 'Database error',
-        });
-      }
+  resolveProject((err, projectIdNum) => {
+    if (err) {
+      console.error('Database error:', err);
+      return res.status(500).json({
+        success: false,
+        message: 'Database error',
+      });
+    }
 
-      if (!project) {
-        return res.status(404).json({
-          success: false,
-          message: 'Project not found',
-        });
-      }
+    if (!projectIdNum) {
+      return res.status(404).json({
+        success: false,
+        message: 'Project not found',
+      });
+    }
 
-      // Generate anonymous session ID if not provided
-      const sessionId = req.body.sessionId || generateSessionId();
-      const ipHash = hashIP(req.ip);
+    // Generate anonymous session ID if not provided
+    const sessionId = req.body.sessionId || generateSessionId();
+    const ipHash = hashIP(req.ip);
 
-      // Insert analytics data
-      db.run(
-        `
+    // Insert analytics data
+    db.run(
+      `
       INSERT INTO analytics (project_id, url, referrer, user_agent, ip_hash, session_id)
       VALUES (?, ?, ?, ?, ?, ?)
     `,
-        [projectIdNum, cleanUrl, cleanReferrer, cleanUserAgent, ipHash, sessionId],
-        function (err) {
-          if (err) {
-            console.error('Database error:', err);
-            return res.status(500).json({
-              success: false,
-              message: 'Failed to record analytics data',
-            });
-          }
-
-          res.json({
-            success: true,
-            message: 'Analytics data recorded',
-            id: this.lastID,
+      [projectIdNum, cleanUrl, cleanReferrer, cleanUserAgent, ipHash, sessionId],
+      function (err) {
+        if (err) {
+          console.error('Database error:', err);
+          return res.status(500).json({
+            success: false,
+            message: 'Failed to record analytics data',
           });
         }
-      );
-    }
-  );
+
+        res.json({
+          success: true,
+          message: 'Analytics data recorded',
+          id: this.lastID,
+        });
+      }
+    );
+  });
 });
 
 // Get analytics script (industry-standard: DNT, no cookies/localStorage, sendBeacon)
@@ -496,20 +532,26 @@ app.get('/snippet/analytics.js', (req, res) => {
     return;
   }
 
-  var endpoint = '${trackEndpoint}';
+  var endpoint = window.ratAnalyticsEndpoint || '${trackEndpoint}';
+  var apiKey = window.ratAnalyticsApiKey;
   var data = {
     projectId: projectId,
     url: window.location.href,
     referrer: document.referrer || '',
     userAgent: navigator.userAgent
   };
+  if (apiKey) data.apiKey = apiKey;
   var payload = JSON.stringify(data);
 
   function send() {
-    if (navigator.sendBeacon && navigator.sendBeacon(endpoint, new Blob([payload], { type: 'application/json' }))) return;
+    var headers = { 'Content-Type': 'application/json' };
+    if (apiKey) headers['X-API-Key'] = apiKey;
+    if (navigator.sendBeacon && !apiKey) {
+      if (navigator.sendBeacon(endpoint, new Blob([payload], { type: 'application/json' }))) return;
+    }
     fetch(endpoint, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: headers,
       body: payload,
       keepalive: true
     }).catch(function() {});
@@ -531,6 +573,13 @@ app.get('/snippet/analytics.js', (req, res) => {
 });
 
 // Authentication routes
+app.get('/login', (req, res) => {
+  if (req.session.userId) {
+    return res.redirect('/');
+  }
+  res.sendFile(path.join(__dirname, 'public', 'login.html'));
+});
+
 app.post('/login', (req, res) => {
   const { username, password } = req.body;
 
@@ -746,7 +795,7 @@ app.get('/api/projects', requireAuth, (req, res) => {
   db.all(
     `
     SELECT
-      p.id, p.name, p.description, p.created_at, p.updated_at,
+      p.id, p.name, p.description, p.api_key, p.created_at, p.updated_at,
       u.username as owner_username,
       CASE WHEN p.owner_id = ? THEN 'owner' ELSE ps.permission END as access_level
     FROM projects p
@@ -794,12 +843,13 @@ app.post('/api/projects', requireAuth, (req, res) => {
     });
   }
 
+  const apiKey = crypto.randomBytes(32).toString('hex');
   db.run(
     `
-    INSERT INTO projects (name, description, owner_id)
-    VALUES (?, ?, ?)
+    INSERT INTO projects (name, description, owner_id, api_key)
+    VALUES (?, ?, ?, ?)
   `,
-    [cleanName, cleanDescription, userId],
+    [cleanName, cleanDescription, userId, apiKey],
     function (err) {
       if (err) {
         console.error('Database error:', err);
@@ -817,6 +867,7 @@ app.post('/api/projects', requireAuth, (req, res) => {
           name: cleanName,
           description: cleanDescription,
           owner_id: userId,
+          api_key: apiKey,
         },
       });
     }
@@ -917,6 +968,106 @@ app.get('/api/stats/:projectId', requireAuth, requireProjectAccess, (req, res) =
   );
 });
 
+// Change password
+app.put('/api/users/:id/password', requireAuth, (req, res) => {
+  const targetUserId = parseInt(req.params.id);
+  const userId = req.session.userId;
+  const { currentPassword, newPassword } = req.body;
+
+  if (req.session.role !== 'admin' && targetUserId !== userId) {
+    return res.status(403).json({ error: 'Cannot change another user password' });
+  }
+  if (!newPassword) {
+    return res.status(400).json({ error: 'New password is required' });
+  }
+  if (!validatePassword(newPassword)) {
+    return res.status(400).json({
+      error: 'New password must be at least 8 characters with uppercase, lowercase, and number',
+    });
+  }
+
+  db.get('SELECT password_hash FROM users WHERE id = ?', [targetUserId], (err, user) => {
+    if (err || !user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    const isAdminChangingOther = req.session.role === 'admin' && targetUserId !== userId;
+    if (isAdminChangingOther) {
+      bcrypt.hash(newPassword, 10, (err, hash) => {
+        if (err) return res.status(500).json({ error: 'Failed to update password' });
+        db.run('UPDATE users SET password_hash = ? WHERE id = ?', [hash, targetUserId], (err) => {
+          if (err) return res.status(500).json({ error: 'Failed to update password' });
+          res.json({ success: true });
+        });
+      });
+      return;
+    }
+    if (!currentPassword) {
+      return res.status(400).json({ error: 'Current password is required' });
+    }
+    bcrypt.compare(currentPassword, user.password_hash, (err, result) => {
+      if (err || !result) {
+        return res.status(401).json({ error: 'Current password is incorrect' });
+      }
+      bcrypt.hash(newPassword, 10, (err, hash) => {
+        if (err) return res.status(500).json({ error: 'Failed to update password' });
+        db.run('UPDATE users SET password_hash = ? WHERE id = ?', [hash, targetUserId], (err) => {
+          if (err) return res.status(500).json({ error: 'Failed to update password' });
+          res.json({ success: true });
+        });
+      });
+    });
+  });
+});
+
+// Share project
+app.post('/api/projects/:projectId/share', requireAuth, (req, res) => {
+  const projectId = parseInt(req.params.projectId);
+  const { userId: targetUserId, permission } = req.body;
+  const ownerId = req.session.userId;
+
+  if (!projectId || !targetUserId) {
+    return res.status(400).json({
+      success: false,
+      message: 'projectId and userId are required',
+    });
+  }
+
+  db.get(
+    'SELECT owner_id FROM projects WHERE id = ? AND is_active = 1',
+    [projectId],
+    (err, project) => {
+      if (err) {
+        console.error('Database error:', err);
+        return res.status(500).json({ error: 'Database error' });
+      }
+      if (!project || (project.owner_id !== ownerId && req.session.role !== 'admin')) {
+        return res.status(403).json({ error: 'Access denied' });
+      }
+
+      const perm = permission === 'admin' ? 'admin' : 'view';
+      db.run(
+        'INSERT OR REPLACE INTO project_shares (project_id, user_id, permission) VALUES (?, ?, ?)',
+        [projectId, targetUserId, perm],
+        (err) => {
+          if (err) {
+            console.error('Database error:', err);
+            return res.status(500).json({ error: 'Failed to share project' });
+          }
+          res.json({ success: true });
+        }
+      );
+    }
+  );
+});
+
+// SEO
+app.get('/sitemap.xml', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'sitemap.xml'));
+});
+app.get('/robots.txt', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'robots.txt'));
+});
+
 // Error handling middleware (next required by Express signature)
 // eslint-disable-next-line no-unused-vars
 app.use((err, req, res, next) => {
@@ -979,418 +1130,6 @@ async function startServer() {
 }
 
 const serverReady = startServer();
-
-// Login routes (duplicate - first definition wins; these are legacy)
-app.get('/login', (req, res) => {
-  if (req.session.userId) {
-    return res.redirect('/');
-  }
-  res.sendFile(path.join(__dirname, 'public', 'login.html'));
-});
-
-app.post('/login', (req, res) => {
-  const { username, password } = req.body;
-
-  // Input validation
-  if (!username || !password) {
-    return res.status(400).json({ error: 'Username and password are required' });
-  }
-
-  const cleanUsername = sanitizeString(username, 50);
-  if (cleanUsername !== username) {
-    return res.status(400).json({ error: 'Invalid username format' });
-  }
-
-  db.get(
-    'SELECT id, username, password_hash, role FROM users WHERE username = ?',
-    [cleanUsername],
-    (err, user) => {
-      if (err) {
-        console.error('Database error:', err);
-        return res.status(500).json({ error: 'Authentication service temporarily unavailable' });
-      }
-
-      if (!user) {
-        // Don't reveal if username exists or not for security
-        return res.status(401).json({ error: 'Invalid credentials' });
-      }
-
-      bcrypt.compare(password, user.password_hash, (err, result) => {
-        if (err) {
-          console.error('Password comparison error:', err);
-          return res.status(500).json({ error: 'Authentication service temporarily unavailable' });
-        }
-
-        if (result) {
-          req.session.userId = user.id;
-          req.session.username = user.username;
-          req.session.role = user.role;
-
-          // Update last login
-          db.run('UPDATE users SET last_login = CURRENT_TIMESTAMP WHERE id = ?', [user.id]);
-
-          res.json({ success: true, user: { username: user.username, role: user.role } });
-        } else {
-          res.status(401).json({ error: 'Invalid credentials' });
-        }
-      });
-    }
-  );
-});
-
-app.post('/logout', (req, res) => {
-  req.session.destroy((err) => {
-    if (err) {
-      console.error('Logout error:', err);
-      return res.status(500).json({ error: 'Logout failed' });
-    }
-    res.json({ success: true });
-  });
-});
-
-// Protected routes
-app.post('/track', (req, res) => {
-  const { projectId, url, referrer, userAgent } = req.body;
-
-  // Comprehensive validation
-  if (!projectId || !url) {
-    return res.status(400).json({ error: 'Project ID and URL are required' });
-  }
-
-  const projectIdNum = parseInt(projectId, 10);
-  if (isNaN(projectIdNum) || projectIdNum <= 0) {
-    return res.status(400).json({ error: 'Invalid project ID' });
-  }
-
-  if (!validateUrl(url)) {
-    return res.status(400).json({ error: 'Invalid URL format' });
-  }
-
-  const cleanUrl = sanitizeString(url, 2000);
-  const cleanReferrer = referrer ? sanitizeString(referrer, 2000) : '';
-  const cleanUserAgent = userAgent ? sanitizeString(userAgent, 500) : '';
-
-  // Get client IP (handle proxy headers)
-  const clientIP =
-    req.headers['x-forwarded-for']?.split(',')[0]?.trim() ||
-    req.headers['x-real-ip'] ||
-    req.connection.remoteAddress ||
-    req.socket.remoteAddress ||
-    'unknown';
-
-  // Check if project exists
-  db.get('SELECT id FROM projects WHERE id = ?', [projectIdNum], (err, project) => {
-    if (err) {
-      console.error('Database error:', err);
-      return res.status(500).json({ error: 'Tracking service temporarily unavailable' });
-    }
-
-    if (!project) {
-      return res.status(400).json({ error: 'Invalid project ID' });
-    }
-
-    // Insert data with prepared statement
-    const stmt = db.prepare(`
-      INSERT INTO page_views (project_id, url, referrer, user_agent, ip_address)
-      VALUES (?, ?, ?, ?, ?)
-    `);
-    stmt.run(projectIdNum, cleanUrl, cleanReferrer, cleanUserAgent, clientIP, (err) => {
-      stmt.finalize();
-      if (err) {
-        console.error('Database error:', err);
-        return res.status(500).json({ error: 'Failed to record analytics data' });
-      }
-      res.status(200).json({ success: true });
-    });
-  });
-});
-
-app.get('/api/projects', requireAuth, (req, res) => {
-  const userId = req.session.userId;
-  const role = req.session.role;
-
-  let query;
-  let params;
-
-  if (role === 'admin') {
-    query = 'SELECT * FROM projects ORDER BY created_at DESC';
-    params = [];
-  } else {
-    query = `
-      SELECT p.* FROM projects p
-      LEFT JOIN shares s ON p.id = s.project_id AND s.user_id = ?
-      WHERE p.owner_id = ? OR s.user_id IS NOT NULL
-      ORDER BY p.created_at DESC
-    `;
-    params = [userId, userId];
-  }
-
-  db.all(query, params, (err, rows) => {
-    if (err) {
-      console.error('Database error:', err);
-      return res.status(500).json({ error: 'Failed to fetch projects' });
-    }
-    res.json(rows);
-  });
-});
-
-app.post('/api/projects', requireAuth, (req, res) => {
-  const { name } = req.body;
-  const ownerId = req.session.userId;
-
-  if (!name) {
-    return res.status(400).json({ error: 'Project name is required' });
-  }
-
-  const stmt = db.prepare('INSERT INTO projects (name, owner_id) VALUES (?, ?)');
-  stmt.run(name, ownerId, function (err) {
-    if (err) {
-      console.error('Database error:', err);
-      return res.status(500).json({ error: 'Failed to create project' });
-    }
-    res.json({ id: this.lastID, name, owner_id: ownerId });
-  });
-  stmt.finalize();
-});
-
-app.get('/api/stats/:projectId', requireAuth, (req, res) => {
-  const projectId = req.params.projectId;
-  const userId = req.session.userId;
-  const role = req.session.role;
-
-  // Check access
-  if (role !== 'admin') {
-    db.get(
-      `
-      SELECT 1 FROM projects p
-      LEFT JOIN shares s ON p.id = s.project_id AND s.user_id = ?
-      WHERE p.id = ? AND (p.owner_id = ? OR s.user_id IS NOT NULL)
-    `,
-      [userId, projectId, userId],
-      (err, result) => {
-        if (err || !result) {
-          return res.status(403).json({ error: 'Access denied' });
-        }
-        getStats();
-      }
-    );
-  } else {
-    getStats();
-  }
-
-  function getStats() {
-    const query = `
-      SELECT
-        COUNT(*) as total_views,
-        COUNT(DISTINCT url) as unique_pages,
-        url,
-        COUNT(url) as views_per_page
-      FROM page_views
-      WHERE project_id = ?
-      GROUP BY url
-      ORDER BY views_per_page DESC
-      LIMIT 10
-    `;
-
-    db.all(query, [projectId], (err, rows) => {
-      if (err) {
-        console.error('Database error:', err);
-        return res.status(500).json({ error: 'Failed to fetch stats' });
-      }
-      res.json(rows);
-    });
-  }
-});
-
-// User management (admin only)
-app.get('/api/users', requireAdmin, (req, res) => {
-  db.all(
-    'SELECT id, username, role, created_at FROM users ORDER BY created_at DESC',
-    [],
-    (err, rows) => {
-      if (err) {
-        console.error('Database error:', err);
-        return res.status(500).json({ error: 'Failed to fetch users' });
-      }
-      res.json(rows);
-    }
-  );
-});
-
-app.post('/api/users', requireAdmin, (req, res) => {
-  const { username, password, role } = req.body;
-
-  // Input validation
-  if (!username || !password) {
-    return res.status(400).json({ error: 'Username and password are required' });
-  }
-
-  const cleanUsername = sanitizeString(username, 50);
-  if (cleanUsername !== username || cleanUsername.length < 3) {
-    return res
-      .status(400)
-      .json({ error: 'Username must be 3-50 characters and contain only valid characters' });
-  }
-
-  if (!validatePassword(password)) {
-    return res.status(400).json({
-      error: 'Password must be at least 8 characters with uppercase, lowercase, and number',
-    });
-  }
-
-  if (role && !['admin', 'viewer'].includes(role)) {
-    return res.status(400).json({ error: 'Invalid role. Must be admin or viewer' });
-  }
-
-  const userRole = role || 'viewer';
-
-  const saltRounds = 10;
-  bcrypt.hash(password, saltRounds, (err, hash) => {
-    if (err) {
-      console.error('Password hashing error:', err);
-      return res.status(500).json({ error: 'Failed to create user account' });
-    }
-
-    const stmt = db.prepare('INSERT INTO users (username, password_hash, role) VALUES (?, ?, ?)');
-    stmt.run(cleanUsername, hash, userRole, function (err) {
-      stmt.finalize();
-      if (err) {
-        console.error('Database error:', err);
-        if (err.message.includes('UNIQUE constraint failed')) {
-          return res.status(409).json({ error: 'Username already exists' });
-        }
-        return res.status(500).json({ error: 'Failed to create user account' });
-      }
-      res.status(201).json({
-        id: this.lastID,
-        username: cleanUsername,
-        role: userRole,
-      });
-    });
-  });
-});
-
-app.put('/api/users/:id/password', requireAuth, (req, res) => {
-  const userId = req.params.id;
-  const { currentPassword, newPassword } = req.body;
-
-  // Users can only change their own password, or admins can change any
-  if (req.session.userId != userId && req.session.role !== 'admin') {
-    return res.status(403).json({ error: 'Access denied' });
-  }
-
-  if (!currentPassword || !newPassword) {
-    return res.status(400).json({ error: 'Current and new passwords are required' });
-  }
-
-  if (!validatePassword(newPassword)) {
-    return res.status(400).json({
-      error: 'New password must be at least 8 characters with uppercase, lowercase, and number',
-    });
-  }
-
-  // Verify current password
-  db.get('SELECT password_hash FROM users WHERE id = ?', [userId], (err, user) => {
-    if (err) {
-      console.error('Database error:', err);
-      return res.status(500).json({ error: 'Password change service temporarily unavailable' });
-    }
-
-    if (!user) {
-      return res.status(404).json({ error: 'User not found' });
-    }
-
-    bcrypt.compare(currentPassword, user.password_hash, (err, result) => {
-      if (err) {
-        console.error('Password comparison error:', err);
-        return res.status(500).json({ error: 'Password change service temporarily unavailable' });
-      }
-
-      if (!result) {
-        return res.status(401).json({ error: 'Current password is incorrect' });
-      }
-
-      // Update password
-      const saltRounds = 10;
-      bcrypt.hash(newPassword, saltRounds, (err, hash) => {
-        if (err) {
-          console.error('Password hashing error:', err);
-          return res.status(500).json({ error: 'Failed to update password' });
-        }
-
-        db.run('UPDATE users SET password_hash = ? WHERE id = ?', [hash, userId], (err) => {
-          if (err) {
-            console.error('Database error:', err);
-            return res.status(500).json({ error: 'Failed to update password' });
-          }
-          res.json({ success: true, message: 'Password updated successfully' });
-        });
-      });
-    });
-  });
-});
-
-// Health check endpoint
-app.get('/health', (req, res) => {
-  db.get('SELECT 1', [], (err) => {
-    if (err) {
-      return res.status(503).json({ status: 'error', database: 'unhealthy' });
-    }
-    res.json({
-      status: 'ok',
-      timestamp: new Date().toISOString(),
-      version: process.env.npm_package_version || '1.1.1',
-    });
-  });
-});
-
-// Sharing
-app.post('/api/projects/:projectId/share', requireAuth, (req, res) => {
-  const projectId = req.params.projectId;
-  const { userId, permissions } = req.body;
-  const ownerId = req.session.userId;
-
-  // Check if user owns the project or is admin
-  db.get('SELECT owner_id FROM projects WHERE id = ?', [projectId], (err, project) => {
-    if (err) {
-      console.error('Database error:', err);
-      return res.status(500).json({ error: 'Database error' });
-    }
-
-    if (!project || (project.owner_id != ownerId && req.session.role !== 'admin')) {
-      return res.status(403).json({ error: 'Access denied' });
-    }
-
-    const stmt = db.prepare(
-      'INSERT OR REPLACE INTO shares (project_id, user_id, permissions) VALUES (?, ?, ?)'
-    );
-    stmt.run(projectId, userId, permissions || 'view', (err) => {
-      if (err) {
-        console.error('Database error:', err);
-        return res.status(500).json({ error: 'Failed to share project' });
-      }
-      res.json({ success: true });
-    });
-    stmt.finalize();
-  });
-});
-
-app.get('/api/user', requireAuth, (req, res) => {
-  res.json({
-    id: req.session.userId,
-    username: req.session.username,
-    role: req.session.role,
-  });
-});
-
-// SEO routes
-app.get('/sitemap.xml', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'sitemap.xml'));
-});
-
-app.get('/robots.txt', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'robots.txt'));
-});
 
 module.exports = app;
 module.exports.ready = serverReady;

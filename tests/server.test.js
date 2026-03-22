@@ -61,6 +61,15 @@ describe('RAT Analytics Server', () => {
       });
       expect(res.status).toBe(404);
     });
+
+    it('POST /track accepts X-API-Key header', async () => {
+      const res = await request(app)
+        .post('/track')
+        .set('X-API-Key', 'test-api-key-12345')
+        .send({ url: 'https://example.com/page' });
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+    });
   });
 
   describe('Authentication', () => {

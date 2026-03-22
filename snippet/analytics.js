@@ -3,9 +3,15 @@
  * https://github.com/wenesay/rat
  *
  * No cookies, no localStorage, no persistent identifiers. Respects DNT.
- * This file is a reference. The server normally serves a dynamic script at
- * /snippet/analytics.js with the endpoint auto-injected. For static hosting,
- * replace TRACK_ENDPOINT below with your RAT server URL + /track
+ * Integration: snippet only (no npm package).
+ *
+ * Config (set before script load):
+ *   window.ratAnalyticsProjectId - Project ID (required)
+ *   window.ratAnalyticsEndpoint  - Custom track URL (e.g. https://your-server.com/track)
+ *   window.ratAnalyticsApiKey    - API key for X-API-Key auth on /track
+ *
+ * The server normally serves a dynamic script at /snippet/analytics.js with
+ * the endpoint auto-injected. This file is for static/CDN hosting.
  */
 (function () {
   'use strict';
@@ -28,9 +34,8 @@
     return;
   }
 
-  // When served from /snippet/analytics.js, endpoint is auto-injected by server.
-  // For static use: set window.ratAnalyticsEndpoint or replace below.
   var endpoint = window.ratAnalyticsEndpoint || 'https://your-rat-server.com/track';
+  var apiKey = window.ratAnalyticsApiKey;
 
   var data = {
     projectId: projectId,
@@ -38,17 +43,18 @@
     referrer: document.referrer || '',
     userAgent: navigator.userAgent,
   };
+  if (apiKey) data.apiKey = apiKey;
   var payload = JSON.stringify(data);
 
   function send() {
-    if (
-      navigator.sendBeacon &&
-      navigator.sendBeacon(endpoint, new Blob([payload], { type: 'application/json' }))
-    )
-      return;
+    var headers = { 'Content-Type': 'application/json' };
+    if (apiKey) headers['X-API-Key'] = apiKey;
+    if (navigator.sendBeacon && !apiKey) {
+      if (navigator.sendBeacon(endpoint, new Blob([payload], { type: 'application/json' }))) return;
+    }
     fetch(endpoint, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: headers,
       body: payload,
       keepalive: true,
     }).catch(function () {});

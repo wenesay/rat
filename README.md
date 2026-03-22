@@ -340,6 +340,13 @@ Include the tracking code in the `<head>` section of your website:
 
 The snippet auto-detects its endpoint from the script URL, respects Do Not Track (DNT), and uses `sendBeacon` for reliable delivery.
 
+**Optional configuration** (set before loading the script):
+
+- **window.ratAnalyticsEndpoint** – Custom track URL. Use when serving the script from a CDN or static host where the endpoint cannot be inferred (e.g. `https://your-rat-server.com/track`).
+- **window.ratAnalyticsApiKey** – Project API key. When set, sent with `/track` requests for API-key auth (e.g. for SaaS or proxy setups).
+
+**Integration method:** RAT uses the snippet only. No npm package or SDK is provided. See [API.md](API.md) for the REST API.
+
 ### Advanced Usage
 
 #### Custom Event Tracking

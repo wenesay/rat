@@ -46,23 +46,33 @@ Response:
 
 ### Track Page View
 
+Public endpoint. Requires either `projectId` (in body) or `X-API-Key` (header or `apiKey` in body).
+
 ```http
 POST /track
 Content-Type: application/json
+X-API-Key: optional-project-api-key
 
 {
   "projectId": 1,
   "url": "https://example.com/page",
   "referrer": "https://google.com",
-  "userAgent": "Mozilla/5.0..."
+  "userAgent": "Mozilla/5.0...",
+  "apiKey": "optional-alternative-to-header"
 }
 ```
+
+- **projectId**: Required if no API key. Integer project ID.
+- **url**: Required. Page URL.
+- **X-API-Key** or **apiKey**: Optional. When provided, identifies the project; `projectId` can be omitted. Use `apiKey` in body when `sendBeacon` is used (no custom headers).
 
 Response:
 
 ```json
 {
-  "success": true
+  "success": true,
+  "message": "Analytics data recorded",
+  "id": 123
 }
 ```
 
@@ -124,11 +134,18 @@ Response:
 
 ```json
 {
-  "id": 2,
-  "name": "New Project",
-  "owner_id": 1
+  "success": true,
+  "message": "Project created successfully",
+  "project": {
+    "id": 2,
+    "name": "New Project",
+    "owner_id": 1,
+    "api_key": "hex-string-for-tracking"
+  }
 }
 ```
+
+Each project has an `api_key` for use with the `/track` endpoint (header or body).
 
 ### Share Project
 
@@ -139,7 +156,7 @@ Content-Type: application/json
 
 {
   "userId": 2,
-  "permissions": "view"
+  "permission": "view"
 }
 ```
 
@@ -239,7 +256,8 @@ Common HTTP status codes:
 
 ## Rate Limiting
 
-Currently no rate limiting is implemented. Consider adding rate limiting for production deployments.
+- **`/track`**: 10 requests per minute per IP
+- **`/api/*`**: 100 requests per 15 minutes per IP
 
 ## Data Types
 
@@ -250,6 +268,10 @@ Currently no rate limiting is implemented. Consider adding rate limiting for pro
 - **userAgent**: String - Browser user agent (optional)
 - **permissions**: String - "view" or "admin"
 
-## SDKs and Libraries
+## Client Integration
 
-Currently, no official SDKs are available. The API is RESTful and can be used with any HTTP client.
+**Snippet only.** RAT supports integration via the JavaScript snippet only. No official npm package or SDK is provided. The snippet is served at `/snippet/analytics.js` and supports:
+
+- **window.ratAnalyticsProjectId** – Project ID (required)
+- **window.ratAnalyticsEndpoint** – Custom track URL (e.g. `https://your-server.com/track`) when the script is hosted statically
+- **window.ratAnalyticsApiKey** – Project API key; when set, sends `X-API-Key` (or `apiKey` in body) for `/track` calls
