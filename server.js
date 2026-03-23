@@ -52,10 +52,10 @@ app.use(
   helmet({
     contentSecurityPolicy: {
       directives: {
-        defaultSrc: ["'self'"],
-        styleSrc: ["'self'", "'unsafe-inline'"],
-        scriptSrc: ["'self'"],
-        imgSrc: ["'self'", 'data:', 'https:'],
+        defaultSrc: ['\'self\''],
+        styleSrc: ['\'self\'', '\'unsafe-inline\''],
+        scriptSrc: ['\'self\''],
+        imgSrc: ['\'self\'', 'data:', 'https:'],
       },
     },
     hsts: {
@@ -259,11 +259,11 @@ function initializeDatabase() {
               bcrypt.hash('Test1234!', 10, (hashErr, hash) => {
                 if (hashErr) return resolve();
                 db.run(
-                  "INSERT OR IGNORE INTO users (id, username, password_hash, role, is_active) VALUES (1, 'testadmin', ?, 'admin', 1)",
+                  'INSERT OR IGNORE INTO users (id, username, password_hash, role, is_active) VALUES (1, \'testadmin\', ?, \'admin\', 1)',
                   [hash],
                   () => {
                     db.run(
-                      "INSERT OR IGNORE INTO projects (id, name, owner_id, is_active, api_key) VALUES (1, 'Test Project', 1, 1, 'test-api-key-12345')",
+                      'INSERT OR IGNORE INTO projects (id, name, owner_id, is_active, api_key) VALUES (1, \'Test Project\', 1, 1, \'test-api-key-12345\')',
                       () => {
                         console.log('✅ Database schema initialized (test mode)');
                         resolve();
