@@ -4,17 +4,17 @@
 [![Node.js Version](https://img.shields.io/badge/node-%3E%3D14.0.0-brightgreen)](https://nodejs.org/)
 [![Docker](https://img.shields.io/badge/docker-ready-blue)](https://docker.com/)
 
-> **Real Analytics Tracker (RAT)** — Open-source, privacy-focused, self-hosted web analytics. No cookies, no invasive tracking. GDPR/CCPA friendly.
+> **Real Analytics Tracker (RAT)** — Open-source, privacy-focused, self-hosted web analytics. No third-party cookies, no invasive cross-site tracking. GDPR/CCPA friendly.
 
 **RAT** is public, open-source software. Clone, fork, and contribute via pull requests. It is maintained by an individual developer and improved by the community. You self-host RAT on your own infrastructure and retain full control of your data.
 
 ## ✨ Features
 
-- 🔒 **Privacy-First**: No cookies, no personal identifiers, no cross-site tracking
+- 🔒 **Privacy-First**: No third-party cookies, no cross-site tracking; optional first-party visitor id (localStorage) can be disabled
 - 📊 **Project-Based Analytics**: Organize your analytics by projects with granular access control
 - 👥 **Multi-User Support**: Admin and viewer roles with secure authentication
 - 🔗 **Project Sharing**: Share analytics access with team members or clients
-- ⚡ **Lightweight**: Industry-standard snippet (respects DNT, uses sendBeacon, no cookies/localStorage)
+- ⚡ **Lightweight**: Snippet-only integration (DNT-aware, `fetch` + `keepalive`, SPA navigation hooks, `ratTrack` + `data-rat-track`)
 - 🐳 **Easy Deployment**: Docker-ready with SQLite database (no external dependencies)
 - 📱 **Responsive Dashboard**: Clean, modern interface for viewing analytics
 - 🔐 **Secure**: Password hashing, session management, and role-based access control
@@ -338,41 +338,34 @@ Include the tracking code in the `<head>` section of your website:
 - `your-project-id-here` with your actual project ID
 - `https://your-rat-server.com` with your self-hosted RAT server URL
 
-The snippet auto-detects its endpoint from the script URL, respects Do Not Track (DNT), and uses `sendBeacon` for reliable delivery.
+Loading `/snippet/analytics.js` from your RAT server injects the correct `POST /track` URL automatically. Static/CDN copies use the placeholder `https://your-rat-server.com/track` in `snippet/analytics.js` unless you set **window.ratAnalyticsEndpoint**. The snippet respects **Do Not Track (DNT)** and sends JSON via `fetch` with `keepalive: true` and **`X-API-Key`** when an API key is configured (not in the JSON body).
 
 **Optional configuration** (set before loading the script):
 
-- **window.ratAnalyticsEndpoint** – Custom track URL. Use when serving the script from a CDN or static host where the endpoint cannot be inferred (e.g. `https://your-rat-server.com/track`).
-- **window.ratAnalyticsApiKey** – Project API key. When set, sent with `/track` requests for API-key auth (e.g. for SaaS or proxy setups).
+- **window.ratAnalyticsEndpoint** – Custom track URL. Use when serving the script from a CDN or static host (e.g. `https://your-rat-server.com/track`).
+- **window.ratAnalyticsApiKey** – Project API key. Sent as the **`X-API-Key`** header on every request.
+- **window.ratAnalyticsDisableStorage** – Set to `true` to skip `localStorage` (no `sessionId` is generated or sent).
+- **window.ratDebug** – Set to `true` to log outbound payloads and network errors to the console.
+
+**`POST /track` JSON** (minimal shapes): always `projectId`, `url`, `referrer`, `userAgent`; optionally `sessionId` (32 lowercase hex), `event` (defaults to `pageview` on the server), `eventTarget`, `eventData` (string; objects should be `JSON.stringify` on the client).
+
+**Custom events** – `window.ratTrack('signup', 'hero-cta', { plan: 'pro' });`
+
+**Delegated clicks** – Add `data-rat-track="identifier"` to buttons or links; the snippet sends `event: "click"` with that value as `eventTarget`.
 
 **Integration method:** RAT uses the snippet only. No npm package or SDK is provided. See [API.md](API.md) for the REST API.
 
 ### Advanced Usage
 
-#### Custom Event Tracking
-
-Track custom events beyond automatic page views:
+#### Custom event tracking
 
 ```javascript
-// Track custom events (if implemented)
-if (window.ratAnalytics) {
-  window.ratAnalytics.track('button_click', {
-    button_id: 'cta_main',
-    page: window.location.pathname,
-  });
-}
+window.ratTrack('button_click', 'cta_main', { section: 'hero' });
 ```
 
-#### User Identification (Privacy-Compliant)
+#### First-party session id
 
-Identify users without collecting personal data:
-
-```javascript
-// Set anonymous user identifier (if implemented)
-if (window.ratAnalytics) {
-  window.ratAnalytics.identify('anonymous_user_123');
-}
-```
+By default the snippet stores a random 32-character hex id per project in `localStorage` (`rat_vid_` + sanitized project id) and sends it as `sessionId`. Set **`window.ratAnalyticsDisableStorage = true`** before the script to disable this (visitors still get page and event tracking; `sessionId` is omitted). Document this in your privacy policy where relevant.
 
 ### Dashboard Features
 
@@ -399,21 +392,17 @@ if (window.ratAnalytics) {
 
 RAT is designed with privacy as the foundation:
 
-#### ✅ What We Collect (Minimal & Anonymous)
+#### ✅ What the snippet can send (you control your server)
 
-- **Page URL**: Current page path (anonymized)
-- **Referrer**: Source website (if available)
-- **Timestamp**: When the visit occurred
-- **Technical Data**: Browser type, screen size, device type
-- **Session Data**: Temporary session identifier (not stored long-term)
+- **Page URL**, **referrer**, **user agent**, **timestamp**
+- **Optional first-party `sessionId`**: Random 32-hex id in `localStorage` per project (unless `ratAnalyticsDisableStorage` is true)
+- **Optional events**: Automatic `pageview`, `click` (via `data-rat-track`), or custom events via `ratTrack`
 
-#### ❌ What We DON'T Collect
+#### ❌ What we avoid by default
 
-- **Personal Information**: No names, emails, or identifiers
-- **Cookies**: No tracking cookies or local storage
-- **IP Addresses**: Not stored (privacy protection)
-- **User Behavior**: No mouse tracking or heatmaps
-- **Third-Party Data**: No integration with other tracking services
+- **Third-party cookies** and cross-site ad tracking
+- **IP addresses** in plain form (optional hashed IP for coarse geography on the server, depending on deployment)
+- **Mouse / heatmap** tracking in the default snippet
 
 #### 🔒 Privacy Compliance
 

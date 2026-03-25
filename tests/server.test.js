@@ -28,7 +28,9 @@ describe('RAT Analytics Server', () => {
       expect(res.headers['content-type']).toMatch(/javascript/);
       expect(res.text).toContain('ratAnalytics');
       expect(res.text).toContain('doNotTrack');
-      expect(res.text).toContain('sendBeacon');
+      expect(res.text).toContain('ratTrack');
+      expect(res.text).toContain('keepalive');
+      expect(res.text).toContain('data-rat-track');
     });
   });
 
@@ -67,6 +69,33 @@ describe('RAT Analytics Server', () => {
         .post('/track')
         .set('X-API-Key', 'test-api-key-12345')
         .send({ url: 'https://example.com/page' });
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+    });
+
+    it('POST /track accepts sessionId, event, eventTarget, eventData', async () => {
+      const res = await request(app)
+        .post('/track')
+        .send({
+          projectId: 1,
+          url: 'https://example.com/app',
+          referrer: 'https://google.com',
+          userAgent: 'Jest',
+          sessionId: 'a1b2c3d4e5f6789012345678abcdef12',
+          event: 'purchase',
+          eventTarget: 'checkout',
+          eventData: JSON.stringify({ amount: 10 }),
+        });
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+    });
+
+    it('POST /track ignores invalid sessionId', async () => {
+      const res = await request(app).post('/track').send({
+        projectId: 1,
+        url: 'https://example.com/nosession',
+        sessionId: 'not-valid-hex',
+      });
       expect(res.status).toBe(200);
       expect(res.body.success).toBe(true);
     });

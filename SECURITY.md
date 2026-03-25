@@ -67,7 +67,7 @@ When deploying RAT, please follow these security best practices:
 - RAT stores analytics data in plain text (by design for transparency)
 - Session data is stored server-side
 - Passwords are hashed with bcrypt
-- No personal user data is collected by the analytics script
+- The default snippet does not collect names or emails; it may send an optional first-party `sessionId` from `localStorage` unless disabled with `ratAnalyticsDisableStorage`
 
 ## Contact
 

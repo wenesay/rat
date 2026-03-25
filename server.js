@@ -7,8 +7,8 @@
  * while providing valuable insights for website owners.
  *
  * Features:
- * - No cookies or personal identifiers
- * - Minimal data collection (URL, referrer, user agent)
+ * - No third-party cookies; optional first-party visitor id (localStorage) when enabled in the snippet
+ * - Minimal data collection (URL, referrer, user agent, optional events)
  * - Project-based organization
  * - User authentication and authorization
  * - RESTful API
@@ -236,7 +236,10 @@ function initializeDatabase() {
             referrer TEXT CHECK(length(referrer) <= 2000),
             user_agent TEXT CHECK(length(user_agent) <= 500),
             ip_hash TEXT, -- Hashed IP for geography (optional)
-            session_id TEXT, -- Anonymous session identifier
+            session_id TEXT, -- Optional first-party visitor id (32 hex from snippet) or null
+            event TEXT CHECK(length(event) <= 100),
+            event_target TEXT CHECK(length(event_target) <= 500),
+            event_data TEXT CHECK(length(event_data) <= 4000),
             timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (project_id) REFERENCES projects (id) ON DELETE CASCADE
           )
@@ -248,34 +251,40 @@ function initializeDatabase() {
               return;
             }
 
-            // Create indexes for performance
-            db.run(
-              'CREATE INDEX IF NOT EXISTS idx_analytics_project_timestamp ON analytics(project_id, timestamp)'
-            );
-            db.run('CREATE INDEX IF NOT EXISTS idx_analytics_session ON analytics(session_id)');
+            migrateAnalyticsSchema((migErr) => {
+              if (migErr) {
+                console.error('❌ Analytics migration failed:', migErr.message);
+                reject(migErr);
+                return;
+              }
 
-            // Test seed: create user and project for /track tests
-            if (NODE_ENV === 'test') {
-              bcrypt.hash('Test1234!', 10, (hashErr, hash) => {
-                if (hashErr) return resolve();
-                db.run(
-                  "INSERT OR IGNORE INTO users (id, username, password_hash, role, is_active) VALUES (1, 'testadmin', ?, 'admin', 1)",
-                  [hash],
-                  () => {
-                    db.run(
-                      "INSERT OR IGNORE INTO projects (id, name, owner_id, is_active, api_key) VALUES (1, 'Test Project', 1, 1, 'test-api-key-12345')",
-                      () => {
-                        console.log('✅ Database schema initialized (test mode)');
-                        resolve();
-                      }
-                    );
-                  }
-                );
-              });
-            } else {
-              console.log('✅ Database schema initialized');
-              resolve();
-            }
+              db.run(
+                'CREATE INDEX IF NOT EXISTS idx_analytics_project_timestamp ON analytics(project_id, timestamp)'
+              );
+              db.run('CREATE INDEX IF NOT EXISTS idx_analytics_session ON analytics(session_id)');
+
+              if (NODE_ENV === 'test') {
+                bcrypt.hash('Test1234!', 10, (hashErr, hash) => {
+                  if (hashErr) return resolve();
+                  db.run(
+                    "INSERT OR IGNORE INTO users (id, username, password_hash, role, is_active) VALUES (1, 'testadmin', ?, 'admin', 1)",
+                    [hash],
+                    () => {
+                      db.run(
+                        "INSERT OR IGNORE INTO projects (id, name, owner_id, is_active, api_key) VALUES (1, 'Test Project', 1, 1, 'test-api-key-12345')",
+                        () => {
+                          console.log('✅ Database schema initialized (test mode)');
+                          resolve();
+                        }
+                      );
+                    }
+                  );
+                });
+              } else {
+                console.log('✅ Database schema initialized');
+                resolve();
+              }
+            });
           }
         );
       });
@@ -290,6 +299,40 @@ function sanitizeString(str, maxLength = 255) {
     .trim()
     .substring(0, maxLength)
     .replace(/[<>"'&]/g, '');
+}
+
+function sanitizeOptionalText(str, maxLength) {
+  if (str == null || str === '') return null;
+  const s = typeof str === 'string' ? str : String(str);
+  const t = s.trim().substring(0, maxLength).replace(/\u0000/g, '');
+  return t === '' ? null : t;
+}
+
+function sanitizeSessionIdFromBody(value) {
+  if (value == null || value === '') return null;
+  const s = String(value).trim().toLowerCase();
+  if (/^[a-f0-9]{32}$/.test(s)) return s;
+  return null;
+}
+
+function migrateAnalyticsSchema(callback) {
+  db.all('PRAGMA table_info(analytics)', (err, cols) => {
+    if (err) return callback(err);
+    const have = new Set(cols.map((c) => c.name));
+    const alters = [];
+    if (!have.has('event')) alters.push('ALTER TABLE analytics ADD COLUMN event TEXT');
+    if (!have.has('event_target')) alters.push('ALTER TABLE analytics ADD COLUMN event_target TEXT');
+    if (!have.has('event_data')) alters.push('ALTER TABLE analytics ADD COLUMN event_data TEXT');
+
+    function runNext(i) {
+      if (i >= alters.length) return callback();
+      db.run(alters[i], (e) => {
+        if (e) return callback(e);
+        runNext(i + 1);
+      });
+    }
+    runNext(0);
+  });
 }
 
 function validateEmail(email) {
@@ -310,10 +353,6 @@ function validateUrl(url) {
   } catch {
     return false;
   }
-}
-
-function generateSessionId() {
-  return crypto.randomBytes(32).toString('hex');
 }
 
 function hashIP(ip) {
@@ -399,7 +438,8 @@ app.get('/health', (req, res) => {
 
 // Analytics tracking endpoint (public)
 app.post('/track', (req, res) => {
-  const { projectId, url, referrer, userAgent, apiKey: bodyApiKey } = req.body;
+  const { projectId, url, referrer, userAgent, apiKey: bodyApiKey, event, eventTarget, eventData } =
+    req.body;
   const apiKey = req.headers['x-api-key'] || bodyApiKey;
 
   // Resolve project: X-API-Key header takes precedence over projectId in body
@@ -459,6 +499,18 @@ app.post('/track', (req, res) => {
   const cleanUrl = sanitizeString(url, 2000);
   const cleanReferrer = referrer ? sanitizeString(referrer, 2000) : null;
   const cleanUserAgent = userAgent ? sanitizeString(userAgent, 500) : null;
+  const eventNorm =
+    event != null && String(event).trim() !== '' ? sanitizeString(String(event), 100) : 'pageview';
+  const cleanEvent = eventNorm === '' ? 'pageview' : eventNorm;
+  const cleanEventTarget = sanitizeOptionalText(
+    eventTarget != null ? String(eventTarget) : null,
+    500
+  );
+  const cleanEventData = sanitizeOptionalText(
+    eventData != null ? String(eventData) : null,
+    4000
+  );
+  const sessionIdResolved = sanitizeSessionIdFromBody(req.body.sessionId);
 
   resolveProject((err, projectIdNum) => {
     if (err) {
@@ -476,17 +528,25 @@ app.post('/track', (req, res) => {
       });
     }
 
-    // Generate anonymous session ID if not provided
-    const sessionId = req.body.sessionId || generateSessionId();
     const ipHash = hashIP(req.ip);
 
     // Insert analytics data
     db.run(
       `
-      INSERT INTO analytics (project_id, url, referrer, user_agent, ip_hash, session_id)
-      VALUES (?, ?, ?, ?, ?, ?)
+      INSERT INTO analytics (project_id, url, referrer, user_agent, ip_hash, session_id, event, event_target, event_data)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
     `,
-      [projectIdNum, cleanUrl, cleanReferrer, cleanUserAgent, ipHash, sessionId],
+      [
+        projectIdNum,
+        cleanUrl,
+        cleanReferrer,
+        cleanUserAgent,
+        ipHash,
+        sessionIdResolved,
+        cleanEvent,
+        cleanEventTarget,
+        cleanEventData,
+      ],
       function (err) {
         if (err) {
           console.error('Database error:', err);
@@ -506,66 +566,22 @@ app.post('/track', (req, res) => {
   });
 });
 
-// Get analytics script (industry-standard: DNT, no cookies/localStorage, sendBeacon)
+// Served snippet matches snippet/analytics.js with the default /track URL injected for this host
 app.get('/snippet/analytics.js', (req, res) => {
   const baseUrl = `${req.protocol}://${req.get('host')}`;
   const trackEndpoint = `${baseUrl}/track`;
-
-  const script = `(function() {
-  'use strict';
-  // RAT Analytics - Privacy-First, Open-Source
-  // No cookies, no localStorage, no persistent identifiers. Respects DNT.
-
-  if (navigator.doNotTrack === '1' || window.doNotTrack === '1') return;
-
-  var projectId = window.ratAnalyticsProjectId;
-  if (!projectId) {
-    var meta = document.querySelector('meta[name="rat-analytics-project"]');
-    if (meta) projectId = meta.getAttribute('content');
+  const snippetPath = path.join(__dirname, 'snippet', 'analytics.js');
+  let script;
+  try {
+    script = fs.readFileSync(snippetPath, 'utf8');
+  } catch (e) {
+    console.error('Failed to read snippet/analytics.js:', e.message);
+    return res.status(500).send('// Snippet unavailable');
   }
-  if (!projectId) {
-    var m = document.querySelector('meta[name="rat-project-id"]');
-    if (m) projectId = m.getAttribute('content');
-  }
-  if (!projectId) {
-    console.warn('RAT: Set window.ratAnalyticsProjectId or <meta name="rat-analytics-project" content="YOUR_PROJECT_ID">');
-    return;
-  }
-
-  var endpoint = window.ratAnalyticsEndpoint || '${trackEndpoint}';
-  var apiKey = window.ratAnalyticsApiKey;
-  var data = {
-    projectId: projectId,
-    url: window.location.href,
-    referrer: document.referrer || '',
-    userAgent: navigator.userAgent
-  };
-  if (apiKey) data.apiKey = apiKey;
-  var payload = JSON.stringify(data);
-
-  function send() {
-    var headers = { 'Content-Type': 'application/json' };
-    if (apiKey) headers['X-API-Key'] = apiKey;
-    if (navigator.sendBeacon && !apiKey) {
-      if (navigator.sendBeacon(endpoint, new Blob([payload], { type: 'application/json' }))) return;
-    }
-    fetch(endpoint, {
-      method: 'POST',
-      headers: headers,
-      body: payload,
-      keepalive: true
-    }).catch(function() {});
-  }
-
-  send();
-
-  if (typeof window.history !== 'undefined' && typeof window.history.pushState === 'function') {
-    var orig = history.pushState;
-    history.pushState = function() { orig.apply(this, arguments); setTimeout(send, 0); };
-    window.addEventListener('popstate', function() { setTimeout(send, 0); });
-  }
-})();
-`;
+  script = script.replace(
+    /window\.ratAnalyticsEndpoint \|\| 'https:\/\/your-rat-server\.com\/track'/,
+    `window.ratAnalyticsEndpoint || ${JSON.stringify(trackEndpoint)}`
+  );
 
   res.setHeader('Content-Type', 'application/javascript');
   res.setHeader('Cache-Control', 'public, max-age=3600');
@@ -897,6 +913,7 @@ app.get('/api/stats/:projectId', requireAuth, requireProjectAccess, (req, res) =
       COUNT(DISTINCT ip_hash) as unique_visitors
     FROM analytics
     WHERE project_id = ? AND timestamp >= datetime('now', '-${days} days')
+      AND (event IS NULL OR event = 'pageview')
   `,
     [projectId],
     (err, summary) => {
@@ -917,6 +934,7 @@ app.get('/api/stats/:projectId', requireAuth, requireProjectAccess, (req, res) =
         COUNT(DISTINCT session_id) as unique_sessions
       FROM analytics
       WHERE project_id = ? AND timestamp >= datetime('now', '-${days} days')
+        AND (event IS NULL OR event = 'pageview')
       GROUP BY url
       ORDER BY views DESC
       LIMIT 20
@@ -938,7 +956,9 @@ app.get('/api/stats/:projectId', requireAuth, requireProjectAccess, (req, res) =
           referrer,
           COUNT(*) as count
         FROM analytics
-        WHERE project_id = ? AND timestamp >= datetime('now', '-${days} days') AND referrer IS NOT NULL
+        WHERE project_id = ? AND timestamp >= datetime('now', '-${days} days')
+          AND referrer IS NOT NULL
+          AND (event IS NULL OR event = 'pageview')
         GROUP BY referrer
         ORDER BY count DESC
         LIMIT 10

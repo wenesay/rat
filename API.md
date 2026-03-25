@@ -58,13 +58,21 @@ X-API-Key: optional-project-api-key
   "url": "https://example.com/page",
   "referrer": "https://google.com",
   "userAgent": "Mozilla/5.0...",
-  "apiKey": "optional-alternative-to-header"
+  "sessionId": "32-hex-lowercase-optional",
+  "event": "pageview",
+  "eventTarget": "optional-target-string",
+  "eventData": "optional-string-or-json-serialized-object",
+  "apiKey": "optional-alternative-to-header-legacy"
 }
 ```
 
 - **projectId**: Required if no API key. Integer project ID.
 - **url**: Required. Page URL.
-- **X-API-Key** or **apiKey**: Optional. When provided, identifies the project; `projectId` can be omitted. Use `apiKey` in body when `sendBeacon` is used (no custom headers).
+- **sessionId**: Optional. Must be exactly 32 hexadecimal characters (lowercase) when present; invalid values are ignored (stored as null). The snippet generates and persists one per project via `localStorage` unless `window.ratAnalyticsDisableStorage` is true.
+- **event**: Optional. Defaults to `pageview` when omitted or empty. Used for custom events, `click` (from `data-rat-track`), etc.
+- **eventTarget**: Optional. Short string (e.g. click target id from `data-rat-track`).
+- **eventData**: Optional. Opaque string; objects should be JSON-stringified on the client.
+- **X-API-Key** or **apiKey**: Optional. When provided, identifies the project; `projectId` can be omitted. The hosted snippet sends **X-API-Key** only (not the secret in the JSON body).
 
 Response:
 
@@ -272,6 +280,10 @@ Common HTTP status codes:
 
 **Snippet only.** RAT supports integration via the JavaScript snippet only. No official npm package or SDK is provided. The snippet is served at `/snippet/analytics.js` and supports:
 
-- **window.ratAnalyticsProjectId** – Project ID (required)
-- **window.ratAnalyticsEndpoint** – Custom track URL (e.g. `https://your-server.com/track`) when the script is hosted statically
-- **window.ratAnalyticsApiKey** – Project API key; when set, sends `X-API-Key` (or `apiKey` in body) for `/track` calls
+- **window.ratAnalyticsProjectId** – Project ID (required unless set via meta tags)
+- **window.ratAnalyticsEndpoint** – Custom track URL (e.g. `https://your-server.com/track`) when the script is hosted statically; otherwise `/snippet/analytics.js` injects your server’s `/track` URL.
+- **window.ratAnalyticsApiKey** – Project API key; when set, sends `X-API-Key` on every `/track` request.
+- **window.ratAnalyticsDisableStorage** – If true, the snippet does not read or write `localStorage` (no `sessionId` sent).
+- **window.ratDebug** – If true, logs each payload and fetch errors to the console.
+- **`ratTrack(eventName, eventTarget?, eventData?)`** – Global function for custom events; same transport as automatic page views.
+- **`data-rat-track`** – Attribute on clickable elements; a capture-phase listener sends `event: "click"` with the attribute value as `eventTarget` (and optional short label text in `eventData`).
